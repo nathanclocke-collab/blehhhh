@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>:3</title>
+
+    <style>
+      body {
+        background-color: bisque;
+        font-family: 'Courier New', Courier, monospace;
+        display: flex; /*centers everything on screen*/
+        flex-direction: column; /* stacks elements vertically - character, text, then button*/
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        user-select: none; /* Prevents text highlighting while dragging */
+        -webkit-user-select: none;
+      }
+
+      #game-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        position: relative;
+      }
+
+      /* FIXED: Shifted slightly to the right to find the perfect middle-ground centering */
+      #character-zone {
+        position: relative;
+        width: 200px;
+        height: 200px;
+        margin: 0 auto 20px 75px; 
+      }
+
+      #character {
+        width: 200px;
+        height: 200px;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 2; /* Sits cleanly on top of the button */
+        cursor: default;
+        
+        /* Inline Sprite Sheet using your Piskel's exact embedded base64 data */
+        background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFoAAAAtCAYAAAAuj3x7AAAED0lEQVR4AeyZXZbTMAyFK9bCOxtg+WyAd/ZS8mWqqexYiu04bk5nOL21/nV9p4WW+XEb9+c+btSUSVP5tgoNOTBFiRct4X5g6HpPaBYBb1meU1/PvI+4Is+d4esuztJ8jeupNbmvcU5yALsZntA6qHuwDljOETOWMd2PEfsPz9gTmtt5SzSuJ7XA+tYmJzxNQL7H8rA2VNTXk5iFF7c1u3aN0AzxlnnxqIfcK9DDNeppuoMndP6KYGjL0pZaZs9CC69SbUmXKu6e0FXNjUXdJBv3aPnsfbq3eEZCX4pokf3c4CE9IqHnXuPNt0VCl/6OOiLH6Hl7XEbvOzTPE/rQ0ECBZG5QdzR11p7uuZ7QRy8a9XeTjYaa3Nnzzap6syT0JYnWX+n0yi59SkKvTO/3+81iDZoncsZda62PTY0FsVmwe7HzvXks96knZkGsF67Q+UAWaszaGuO0cWuTezUsH2tbXjZubVvTa1cLzQKWA2wP5IGXf2UcXiDiQB5ENT25JqF7Fnz3fCjgCi0SfxESSfMiqf8x/vksEueflWMskXifSJoXSf2chUicz+tz3xWaQpHycJExcXacCZExPEXKc1q4l4ROporITSSFLvj359dNoTGRtFZENKXnJqCJQWcyX0Quwb8kdNV9EdgW5r7NXdHO+eb+aM6e0LIsAsuxfSipn7//3hRUaRzbgTvTqe8Nh3tWnstk5c65uOu7k9MBM4GTjsNWaL7x5Ch2QwxAWIEPig1pMN+Bn1a0efTnCCfAEyh3TnwQNOY78IPyNGWFTjOBBzFgS/CBjRXsJnKF/tpQuAeewA7DBzY20rZCV78t+Ml7GEnurFked+INO6v1YqYVGr+pmW9QFgzoQNPOwvyufssbuzA3CjXvzIVmOEMU+BtADOQJYiCPX8mHH8g5EQN53PiqCacJ15kloW3nZugOGdu7ZzMb7NXV5JkDamrDGud+h2fvCR3+o+IxdshSDmEF/mjobM7N7IDXpjYLdOlgZ+wJbWu/7QMKNAld+4oQkfXDPx+XwAF+h1vZrxApvtA3O2rvuWkMApHQXW8XkQ+R7U4u+vC7Zj56W451j9m79uKL1Im9NqRP68w0VO95Qm+GnvFTrqc5v9K570aXWmap0LVd33XNCswWuvt923izWXuqac0WuprYuxV6Ql/uFXER4bt18YTe3EtENr+pENnGaMz/c+bhC7mJkMfez5Xqi0j1XT6bDxqR0MJsPhKVQG4BNUVwKcWjbjmmP1axMx5FvjAr3ZMYuQX0LUffIxK6b+KzC2KKZ3S+pRw4529/bNwTen1FPGo/D14hi/NS4sv+0Y9T77onNJdZCSCuYgm+m8jLldbHaXetERoGCGtB7F1h74k95J61Qg9Z9pWH/AcAAP//DFFa+wAAAAZJREFUAwBcu6Jqz+ScqAAAAABJRU5ErkJggg==");
+        
+        background-repeat: no-repeat;
+        background-size: 400px 200px;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+      
+      /* Only show grab hands when dragging is actually unlocked by the final button press */
+      body.drag-unlocked #character {
+        cursor: grab;
+      }
+      body.drag-unlocked #character:active {
+        cursor: grabbing;
+      }
+
+     /* Animation frame-swaps coupled with core physics states */
+     .idle {
+      animation: play-piskel 0.66s steps(2) infinite, bounce 1.2s infinite ease-in-out;
+     }
+   
+     .talking {
+      animation: play-piskel 0.3s steps(2) infinite, jitter 0.3s infinite linear; 
+     }
+     
+     .lockdown-panic {
+      animation: play-piskel 0.15s steps(2) infinite, extreme-jitter 0.1s infinite linear !important;
+     }
+
+     @keyframes play-piskel {
+      from { background-position: 0px 0px; }
+      to { background-position: -400px 0px; }
+     }
+
+     @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+     }
+
+     @keyframes jitter { 
+      0% { transform: translate(0, 0) scaleY(1); }
+      50% { transform: translate(1px, -3px) scaleY(1.02); }
+      100% { transform: translate(-1px, 0) scaleY(1); }
+     }
+
+      #dialogue-box {
+        background: white;          
+        border: 3px solid #333;     
+        border-radius: 10px;        
+        padding: 15px;              
+        width: 300px;               
+        height: 120px;              
+        margin-bottom: 15px;        
+        box-shadow: 4px 4px 0px #333;
+        text-align: left;
+        box-sizing: border-box;
+        overflow: hidden;     /* Safety net */
+      }
+
+      #dialogue-text {
+        margin: 0;
+        line-height: 1.5;
+        letter-spacing: 0.5px;
+        font-size: 15px;
+      }
+      
+      #dialogue-text span {
+        display: inline-block;
+      }
+
+      .ghost {
+        visibility: hidden;
+      }
+
+      button {
+        background-color: #ffb7b2;
+        border: 2px solid #333;
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        border-radius: 5px;
+        box-shadow: 2px 2px 0px #333;
+      }
+
+      button:active {
+        transform: translate(2px, 2px);
+        box-shadow: 0px 0px 0px #333;
+      }
+
+     
+    </style>
+  </head>
+
+  <body>
+
+    <div id="">
+
+    </script>
+  </body>
+</html>
+
+

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>:3c</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1></h1>
+        
+        <div class="playing-field">
+            <div class="hand" id="dealer-hand">
+                <h2> <span id="dealer-score">0</span></h2>
+                <div class="cards" id="dealer-cards"></div>
+            </div>
+            
+            <div class="hand" id="player-hand">
+                <h2> <span id="player-score">0</span></h2>
+                <div class="cards" id="player-cards"></div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="hit-btn" disabled>Hit</button>
+            <button id="stand-btn" disabled>Stand</button>
+            <button id="deal-btn">Deal</button>
+        </div>
+
+        <p id="message-el">Press "Deal" to start the game!</p>
+    </div>
+
+    <script src="script.js"></script>
+ 
+</body>
+</html>

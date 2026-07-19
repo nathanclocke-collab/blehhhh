@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Over :c</title>
+    <style>
+      body {
+        background-color: #2b2b2b; /* Dark grey background for a game-over vibe */
+        color: white;
+        font-family: 'Courier New', Courier, monospace;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        user-select: none;
+        -webkit-user-select: none;
+        overflow: hidden;
+      }
+
+      /* Cinematic wake-up overlay */
+      #fade-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #000000;
+        z-index: 9999;
+        pointer-events: none;
+        opacity: 1;
+        transition: opacity 5.5s ease-in-out; /* Smooth waking up transition */
+      }
+
+      #gameover-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        z-index: 1;
+        background: #3a3a3a; /* Subtle panel backing */
+        padding: 30px;
+        border-radius: 12px;
+        border: 2px solid #444;
+      }
+
+      /* Container for Wimple GIF */
+      #bunny-character {
+        width: 130px;        /* Made Wimple bigger */
+        height: 130px;       /* Made Wimple bigger */
+        margin-bottom: 20px;
+        background-color: transparent; /* Removed the white box */
+        border: none;                  /* Removed the pink border */
+        box-sizing: border-box;
+        /* Keeps the pixel art crisp and perfectly unblurred */
+        image-rendering: text-rendering;
+        image-rendering: -moz-crisp-edges;
+        image-rendering: -webkit-crisp-edges;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+
+      /* Shaking keyframe effect for when he talks */
+      @keyframes bunny-shake {
+        0% { transform: translate(0, 0) rotate(0deg); }
+        20% { transform: translate(-1px, 1px) rotate(-1deg); }
+        40% { transform: translate(1px, -1px) rotate(1deg); }
+        60% { transform: translate(-1px, -1px) rotate(0deg); }
+        80% { transform: translate(1px, 1px) rotate(1deg); }
+        100% { transform: translate(0, 0) rotate(0deg); }
+      }
+
+      /* Class applied dynamically via JavaScript when typing */
+      .talking {
+        animation: bunny-shake 0.15s infinite;
+      }
+
+      #dialogue-box {
+        background: #1a1a1a;          
+        border: 3px solid #ff5555; /* Red border for danger/game over */    
+        border-radius: 10px;        
+        padding: 15px;              
+        width: 340px;               
+        height: 120px;              
+        margin-bottom: 25px;        
+        box-shadow: 4px 4px 0px #ff5555;
+        text-align: left;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+
+      #dialogue-text {
+        margin: 0;
+        line-height: 1.5;
+        letter-spacing: 0.5px;
+        font-size: 15px;
+        color: #ffb2b2;
+      }
+      
+      #dialogue-text span {
+        display: inline-block;
+      }
+
+      .ghost {
+        visibility: hidden;
+      }
+
+      button {
+        background-color: #ff5555;
+        color: white;
+        border: 2px solid #000;
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        border-radius: 5px;
+        box-shadow: 2px 2px 0px #000;
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: bold;
+        outline: none;
+      }
+
+      button:active:not(:disabled) {
+        transform: translate(2px, 2px);
+        box-shadow: 0px 0px 0px #000;
+      }
+
+      button:disabled {
+        background-color: #884444;
+        color: #ccc;
+        cursor: not-allowed;
+        box-shadow: 2px 2px 0px #000;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="fade-overlay"></div>
+
+    <div id="gameover-container">
+      
+      <img id="bunny-character" src="ASSETS/Wimple.gif" alt="Wimple Bunny" onerror="if(this.src.indexOf('Wimple.gif') !== -1) this.src='ASSETS/wimple.gif';">
+
+      <div id="dialogue-box">
+        <p id="dialogue-text"></p>
+      </div>
+
+      <button id="retry-btn" onclick="retryGame()">Next</button>
+
+    </div>
+
+    <script>
+          const bunnyDialogue = [
+        "Oh hi! I was just jorking it don't mind me",
+        "Mr. President must have brought you here somehow",
+        "Hop back in (HAHAHAHAHHAHAHAHHA HOP GET ITTTTTTT), or imma tickle ur bum bum.",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "Sooooooooo..",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "You gotta close this window and go back to the original link yknow.",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "It's really not that difficult.",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "Any day now really..",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "Look, you don't really want to be here",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "I'm just tryna jork it",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "Please",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "...",
+        "Fuck you."
+      ];
+
+      let currentLineIndex = 0;
+      let typingTimer;
+      let isTyping = false; // Tracks if text is currently animating
+      
+      const dialogueText = document.getElementById('dialogue-text');
+      const retryButton = document.getElementById('retry-btn');
+      const fadeOverlay = document.getElementById('fade-overlay');
+      const bunnyCharacter = document.getElementById('bunny-character');
+
+      window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+          fadeOverlay.style.opacity = '0';
+        }, 100);
+      });
+
+      // TYPING EFFECT ENGINE WITH TALKING ANIMATION WIRE-IN
+      function typeBunnyDialogue(message) {
+        clearInterval(typingTimer);
+        dialogueText.innerHTML = "";
+        
+        // Determine if we should lock input for this specific line
+        const isPastThirdLine = currentLineIndex > 2;
+        const isNotEllipsis = message !== "...";
+        const shouldLockInput = isPastThirdLine && isNotEllipsis;
+
+        if (shouldLockInput) {
+          isTyping = true;
+          retryButton.disabled = true; // Visually disable the button
+        }
+
+        // Add talking vibration class to Wimple
+        if (message.trim().length > 0 && message !== "...") {
+          bunnyCharacter.classList.add('talking');
+        }
+
+        for (let i = 0; i < message.length; i++) {
+          let char = message.charAt(i);
+          if (char === " ") {
+            dialogueText.innerHTML += "<span>&nbsp;</span>";
+          } else {
+            dialogueText.innerHTML += `<span class="ghost">${char}</span>`;
+          }
+        }
+
+        const letters = dialogueText.querySelectorAll('span');
+        let currentCharacterIndex = 0;
+        
+        typingTimer = setInterval(() => {
+          if (currentCharacterIndex < letters.length) {
+            letters[currentCharacterIndex].classList.remove('ghost');
+            currentCharacterIndex++;
+          } else {
+            clearInterval(typingTimer);
+            bunnyCharacter.classList.remove('talking');
+            
+            // Unlock input when the line finishes typing
+            if (shouldLockInput) {
+              isTyping = false;
+              retryButton.disabled = false;
+            }
+
+            // If it's the final "Fuck you." line, auto-trigger the close after 1 second
+            if (currentLineIndex === bunnyDialogue.length - 1) {
+              setTimeout(() => {
+                closeWindow();
+              }, 1000);
+            }
+          }
+        }, 40);
+      }
+
+      function handleNextClick() {
+        // Prevent progressing if a locked line is still typing
+        if (isTyping) return;
+
+        currentLineIndex++;
+        
+        if (currentLineIndex < bunnyDialogue.length) {
+          typeBunnyDialogue(bunnyDialogue[currentLineIndex]);
+          
+          // Switch button UI text on the last line
+          if (currentLineIndex === bunnyDialogue.length - 1) {
+            retryButton.innerText = "Fuck You";
+          }
+        } else {
+          closeWindow();
+        }
+      }
+
+      function retryGame() {
+        handleNextClick();
+      }
+
+      // Dedicated close function with a fallback UI message if the browser blocks it
+      function closeWindow() {
+        window.close();
+        
+        // Fallback UI adjustments if browser security blocks the script from closing the tab
+        dialogueText.innerHTML = "Window close blocked by browser security. Please close this tab manually.";
+        retryButton.innerText = "Closed";
+        retryButton.disabled = true;
+      }
+
+      // Initial execution
+      typeBunnyDialogue(bunnyDialogue[currentLineIndex]);
+    </script>
+  </body>
+</html>
