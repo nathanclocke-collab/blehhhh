@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>:3c</title>
+    <style>
+        body {
+            background-color: #1c502c; /* Casino green */
+            color: white;
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .game-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+
+        .playing-field {
+            margin: 30px 0;
+        }
+
+        .hand {
+            margin-bottom: 20px;
+        }
+
+        .cards {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            min-height: 120px;
+            margin-top: 10px;
+        }
+
+        /* Card Styling */
+        .card {
+            width: 80px;
+            height: 120px;
+            background-color: white;
+            color: black;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            box-shadow: 3px 3px 5px rgba(0,0,0,0.3);
+            border: 1px solid #ccc;
+            animation: dealIn 0.3s ease;
+        }
+
+        @keyframes dealIn {
+            from { opacity: 0; transform: translateY(-20px) scale(0.85); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Flip card (used for the dealer's animated reveal) */
+        .flip-card {
+            padding: 0;
+            background: none;
+            box-shadow: none;
+            border: none;
+            perspective: 1000px;
+        }
+
+        .flip-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.5s ease;
+            transform-style: preserve-3d;
+        }
+
+        .flip-card.flipped .flip-inner {
+            transform: rotateY(180deg);
+        }
+
+        .flip-front, .flip-back {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            box-shadow: 3px 3px 5px rgba(0,0,0,0.3);
+            border: 1px solid #ccc;
+        }
+
+        .flip-front {
+            background-image: repeating-linear-gradient(45deg, #7f0000, #7f0000 8px, #b71c1c 8px, #b71c1c 16px);
+        }
+
+        .flip-back {
+            background-color: white;
+            color: black;
+            transform: rotateY(180deg);
+        }
+
+        .controls button {
+            padding: 10px 20px;
+            font-size: 1.1rem;
+            margin: 0 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        #deal-btn { background-color: #ffcc00; color: black; }
+        #hit-btn { background-color: #2196F3; color: white; }
+        #stand-btn { background-color: #f44336; color: white; }
+
+        button:disabled {
+            background-color: #555 !important;
+            color: #888;
+            cursor: not-allowed;
+        }
+
+        #message-el {
+            font-size: 1.3rem;
+            font-style: italic;
+            margin-top: 20px;
+            color: #ffeb3b;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1></h1>
+        
+        <div class="playing-field">
+            <div class="hand" id="dealer-hand">
+                <h2> <span id="dealer-score">0</span></h2>
+                <div class="cards" id="dealer-cards"></div>
+            </div>
+            
+            <div class="hand" id="player-hand">
+                <h2> <span id="player-score">0</span></h2>
+                <div class="cards" id="player-cards"></div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="hit-btn" disabled>Hit</button>
+            <button id="stand-btn" disabled>Stand</button>
+            <button id="deal-btn">Deal</button>
+        </div>
+
+        <p id="message-el">Press "Deal" to start the game!</p>
+    </div>
+
+    <script>
+        // Game State variables
+        let deck = [];
+        let playerHand = [];
+        let dealerHand = [];
+        let playerScore = 0;
+        let dealerScore = 0;
+        let gameInProgress = false;
+
+        // DOM Elements
+        const hitBtn = document.getElementById('hit-btn');
+        const standBtn = document.getElementById('stand-btn');
+        const dealBtn = document.getElementById('deal-btn');
+        const playerCardsEl = document.getElementById('player-cards');
+        const dealerCardsEl = document.getElementById('dealer-cards');
+        const playerScoreEl = document.getElementById('player-score');
+        const dealerScoreEl = document.getElementById('dealer-score');
+        const messageEl = document.getElementById('message-el');
+
+        // 0. Check whether the player has the "old deck of cards" item
+        //    (set by gamecap.html via localStorage when the item is picked up)
+        function playerHasOldDeck() {
+            return localStorage.getItem('hasOldDeck') === 'true';
+        }
+
+        // Helper: numeric value of a card (Ace treated as 11 here, just used for sorting/targeting)
+        function cardBaseValue(card) {
+            if (card.value === 'A') return 11;
+            if (['J', 'Q', 'K'].includes(card.value)) return 10;
+            return parseInt(card.value);
+        }
+
+        // Rigged: give the dealer the two lowest-value cards left in the deck
+        function riggedDealerStartHand() {
+            let idx = deck.map((c, i) => i).sort((a, b) => cardBaseValue(deck[a]) - cardBaseValue(deck[b]));
+            const first = deck.splice(idx[0], 1)[0];
+
+            idx = deck.map((c, i) => i).sort((a, b) => cardBaseValue(deck[a]) - cardBaseValue(deck[b]));
+            const second = deck.splice(idx[0], 1)[0];
+
+            return [first, second];
+        }
+
+        // Rigged: after the player stands, greedily feed the dealer whichever remaining
+        // card gets them closest to (but not over) 21, until they beat the target score.
+        // Reveals each drawn card one at a time as it's added.
+        async function riggedDealerPlay(targetMin) {
+            while (calculateHandValue(dealerHand) < targetMin) {
+                let bestIndex = -1;
+                let bestValue = -1;
+
+                for (let i = 0; i < deck.length; i++) {
+                    const testValue = calculateHandValue(dealerHand.concat([deck[i]]));
+                    if (testValue <= 21 && testValue > bestValue) {
+                        bestValue = testValue;
+                        bestIndex = i;
+                    }
+                }
+
+                if (bestIndex === -1) break; // no safe card left, dealer has to stop (or bust)
+                const [chosenCard] = deck.splice(bestIndex, 1);
+                dealerHand.push(chosenCard);
+                await revealCard(chosenCard, dealerCardsEl);
+                updateScores();
+            }
+        }
+
+        // --- Sound effect: synthesized card flip (no external audio file needed) ---
+        let audioCtx = null;
+        function playFlipSound() {
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                const duration = 0.09;
+                const bufferSize = Math.floor(audioCtx.sampleRate * duration);
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    // decaying noise burst, mimics a sharp card "snap"
+                    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+                }
+
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'highpass';
+                filter.frequency.value = 1200;
+
+                const gainNode = audioCtx.createGain();
+                gainNode.gain.setValueAtTime(0.35, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+                noise.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                noise.start();
+                noise.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                console.warn('Audio playback unavailable:', e);
+            }
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Builds a two-sided card element (back design + face) for the flip animation
+        function createFlipCard(card) {
+            const cardDiv = document.createElement('div');
+            cardDiv.classList.add('card', 'flip-card');
+
+            const inner = document.createElement('div');
+            inner.classList.add('flip-inner');
+
+            const front = document.createElement('div'); // card back, shown first
+            front.classList.add('flip-front');
+
+            const back = document.createElement('div'); // face, revealed on flip
+            back.classList.add('flip-back');
+            back.innerText = `${card.value}${card.suit}`;
+            if (card.suit === '♥' || card.suit === '♦') {
+                back.style.color = 'red';
+            }
+
+            inner.appendChild(front);
+            inner.appendChild(back);
+            cardDiv.appendChild(inner);
+            return cardDiv;
+        }
+
+        // Deals one dealer card face-down, pauses, flips it with a sound, then pauses again
+        async function revealCard(card, containerEl, dealDelay = 200, flipPause = 650) {
+            const cardDiv = createFlipCard(card);
+            containerEl.appendChild(cardDiv);
+
+            await sleep(dealDelay);
+            playFlipSound();
+            void cardDiv.offsetWidth; // force reflow so the CSS transition triggers reliably
+            cardDiv.classList.add('flipped');
+
+            await sleep(flipPause);
+        }
+
+        // 1. Create a fresh deck of cards
+        function buildDeck() {
+            const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            const suits = ['♣', '♦', '♥', '♠'];
+            let newDeck = [];
+
+            for (let s = 0; s < suits.length; s++) {
+                for (let v = 0; v < values.length; v++) {
+                    newDeck.push({ value: values[v], suit: suits[s] });
+                }
+            }
+            return newDeck;
+        }
+
+        // 2. Shuffle the deck
+        function shuffleDeck(deckToShuffle) {
+            for (let i = deckToShuffle.length - 1; i > 0; i--) {
+                let j = Math.floor(Math.random() * (i + 1));
+                let temp = deckToShuffle[i];
+                deckToShuffle[i] = deckToShuffle[j];
+                deckToShuffle[j] = temp;
+            }
+            return deckToShuffle;
+        }
+
+        // 3. Calculate the score of a hand (Accounts for flexible Aces)
+        function calculateHandValue(hand) {
+            let value = 0;
+            let aceCount = 0;
+
+            for (let card of hand) {
+                if (card.value === 'A') {
+                    aceCount += 1;
+                    value += 11;
+                } else if (['J', 'Q', 'K'].includes(card.value)) {
+                    value += 10;
+                } else {
+                    value += parseInt(card.value);
+                }
+            }
+
+            // Adjust for Aces if busting
+            while (value > 21 && aceCount > 0) {
+                value -= 10;
+                aceCount -= 1;
+            }
+
+            return value;
+        }
+
+        // 4. Render the player's hand instantly (no flip animation needed, it's their own hand)
+        function renderPlayerHand() {
+            playerCardsEl.innerHTML = '';
+            playerHand.forEach(card => {
+                const cardDiv = document.createElement('div');
+                cardDiv.classList.add('card');
+                cardDiv.innerText = `${card.value}${card.suit}`;
+                if (card.suit === '♥' || card.suit === '♦') {
+                    cardDiv.style.color = 'red';
+                }
+                playerCardsEl.appendChild(cardDiv);
+            });
+        }
+
+        // 5. Update the score displays
+        function updateScores() {
+            playerScore = calculateHandValue(playerHand);
+            dealerScore = calculateHandValue(dealerHand);
+            playerScoreEl.textContent = playerScore;
+            dealerScoreEl.textContent = dealerScore;
+        }
+
+        // 6. Start a new game
+        async function startGame() {
+            dealBtn.disabled = true;
+            hitBtn.disabled = true;
+            standBtn.disabled = true;
+            messageEl.textContent = "Dealing...";
+
+            deck = shuffleDeck(buildDeck());
+
+            playerHand = [deck.pop(), deck.pop()];
+            renderPlayerHand();
+            updateScores();
+
+            dealerCardsEl.innerHTML = '';
+            dealerHand = [];
+            gameInProgress = true;
+
+            const fairGame = playerHasOldDeck();
+            const initialDealerCards = fairGame ? [deck.pop(), deck.pop()] : riggedDealerStartHand();
+
+            for (const card of initialDealerCards) {
+                dealerHand.push(card);
+                await revealCard(card, dealerCardsEl);
+                updateScores();
+            }
+
+            hitBtn.disabled = false;
+            standBtn.disabled = false;
+            messageEl.textContent = fairGame ? "The deck feels different this time... Hit or Stand?" : "Hit or Stand?";
+
+            // Check for natural Blackjack right away
+            if (playerScore === 21) {
+                endGame("Blackjack! You win!");
+            }
+        }
+
+        // 7. Hit Functionality
+        function hit() {
+            if (!gameInProgress) return;
+
+            playerHand.push(deck.pop());
+            renderPlayerHand();
+            updateScores();
+
+            if (playerScore > 21) {
+                endGame("You busted! Dealer wins.");
+            }
+        }
+
+        // 8. Stand Functionality (Dealer plays, revealing cards one at a time)
+        async function stand() {
+            if (!gameInProgress) return;
+
+            hitBtn.disabled = true;
+            standBtn.disabled = true;
+            messageEl.textContent = "Dealer is playing...";
+
+            if (playerHasOldDeck()) {
+                // Fair rules: dealer must hit until reaching 17 or higher
+                while (calculateHandValue(dealerHand) < 17) {
+                    const card = deck.pop();
+                    dealerHand.push(card);
+                    await revealCard(card, dealerCardsEl);
+                    updateScores();
+                }
+            } else {
+                // Rigged: dealer draws just enough to beat the player's score
+                const targetMin = Math.min(21, playerScore + 1);
+                await riggedDealerPlay(targetMin);
+            }
+
+            updateScores();
+
+            const finalPlayer = playerScore;
+            const finalDealer = dealerScore;
+
+            if (finalDealer > 21) {
+                endGame("Dealer busted! You win!");
+            } else if (finalPlayer > finalDealer) {
+                endGame("You win!");
+            } else if (finalDealer > finalPlayer) {
+                endGame("Dealer wins.");
+            } else {
+                endGame("It's a tie (Push)!");
+            }
+        }
+
+        // 9. End Game state clean up
+        function endGame(message) {
+            messageEl.textContent = message;
+            gameInProgress = false;
+            hitBtn.disabled = true;
+            standBtn.disabled = true;
+            dealBtn.disabled = false;
+        }
+
+        // Event Listeners
+        dealBtn.addEventListener('click', startGame);
+        hitBtn.addEventListener('click', hit);
+        standBtn.addEventListener('click', stand);
+    </script>
+</body>
+</html>
