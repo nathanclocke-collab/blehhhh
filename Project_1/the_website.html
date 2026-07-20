@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>:3</title>
+
+    <style>
+      body {
+        background-color: bisque;
+        font-family: 'Courier New', Courier, monospace;
+        display: flex; /*centers everything on screen*/
+        flex-direction: column; /* stacks elements vertically - character, text, then button*/
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+      }
+
+      #game-container {
+        text-align: center;
+      }
+
+      #character {
+        width: 200px;
+        height: 200px;
+        margin-bottom: 20px;
+        transition: transform 0.1s ease; /* for a smooth transition animation*/
+      }
+
+     /*idle animation (bouncing) */
+     .idle {
+      animation: bounce 1.2s infinite ease-in-out;
+     }
+   
+     .talking {
+      animation: jitter 0.3s infinite linear; 
+     }
+     /*takes 0.3s to finish a loop and it does infinitely until java removes the class */
+
+     @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+     }
+
+     @keyframes jitter { 
+      0% { transform: translate (0, 0) scaleY(1); }
+      50% { transform: translate (1px, -3px) scaleY(1.02); }
+      100% { transform: translate (-1px, 0) scaleY(1); }
+     }
+
+      #dialogue-box {
+        background: white;          
+        border: 3px solid #333;     
+        border-radius: 10px;        
+        padding: 15px;              
+        width: 300px;               
+        height: 120px;              
+        margin-bottom: 15px;        
+        box-shadow: 4px 4px 0px #333;
+        text-align: left;
+        box-sizing: border-box;
+        overflow: hidden;     /* Safety net */
+      }
+
+      #dialogue-text {
+        margin: 0;
+        line-height: 1.5;
+        letter-spacing: 0.5px;
+        font-size: 15px;
+
+      }
+      #dialogue-text span {
+        display: inline-block;
+      }
+
+      /* This special class will hide our "yet-to-be-typed" letters */
+      .ghost {
+        visibility: hidden;
+      }
+
+    
+
+      button {
+        background-color: #ffb7b2;
+        border: 2px solid #333;
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        border-radius: 5px;
+        box-shadow: 2px 2px 0px #333;
+      }
+
+      button:active {
+        transform: translate(2px, 2px);
+        box-shadow: 0px 0px 0px #333;
+      }
+      /*shows pressing of button animation*/
+
+
+    
+
+
+
+    </style>
+  </head>
+
+  <body>
+
+    <div id="game-container">
+      <img id="character" class="idle" src="https://placehold.co/200x200/png?text=:3" alt="My Character">
+
+      <div id="dialogue-box">
+        <p id="dialogue-text">Hello there! Welcome to the birthday website!</p>
+      </div>
+
+      <input id="user-input" type="text" placeholder="Type here..." style="display: none; margin-bottom: 15px; padding: 8px; font-family: monospace; border: 2px solid #333; border-radius: 5px;">
+
+
+      <div id="button-container">
+          <button id="next-btn" onclick="advanceDialogue()">Next</button>
+          <button id="alt-btn" onclick="selectAlternative()" style="display: none; background-color: #ffb2b2; margin-left: 10px;">No</button>
+      </div>
+
+    </div>
+
+
+
+
+
+
+<script>
+
+  let playerName = "";
+  const SECRET_NAME = "Roberta Escobedo Silva";
+
+
+  const normalDialogue = [
+    { text: "My name is Mr. President.", type: "normal" },
+    { text: "I make sure that the right people get their presents.", type: "normal" },
+    { text: "Now! Before I can give you you're wonderful birthday gift... what is your name?", type: "quesiton"}
+  ];
+
+  const lockdownDialogue = [
+    { text: "Are you uh.. sure? We don't want a mixup here-!", type: "normal" },
+    { text: "Right right right- did you check your spelling? Capitalization perhaps?", type: "normal" },
+    { text: "Is that *definitely* your final answer?", type: "choice" },
+    { text: "Oh.", type: "normal" },
+    { text: "...", type: "normal" },
+    { text: "I suggest you leave this website right now.", type: "alarm" },
+  ];
+
+  //lockdown path line when it's wrong
+ 
+
+  let currentLineIndex = -1;
+  let typingTimer; 
+  let isLockdownMode = false; 
+
+  const characterImg = document.getElementById('character');
+  const dialogueText = document.getElementById('dialogue-text');
+  const nextButton = document.getElementById('next-btn');
+  const altButton = document.getElementById('alt-btn'); // Grab our new button
+  const userInput = document.getElementById('user-input');
+
+  function advanceDialogue() {
+    let currentPool = isLockdownMode ? lockdownDialogue : normalDialogue;
+
+    // A. HANDLE SUBMITTING THE NAME QUESTION
+    if (!isLockdownMode && currentLineIndex >= 0 && normalDialogue[currentLineIndex].type === "question") {
+      if (userInput.value.trim() === "") {
+        alert("Please enter a name!");
+        return;
+      }
+      
+      playerName = userInput.value.trim();
+      userInput.value = "";
+      userInput.style.display = "none";
+
+      if (playerName.toLowerCase() === SECRET_NAME.toLowerCase()) {
+        window.location.href = "presents.html"; 
+        return;
+      } else {
+        // Switch to lockdown pool to start the funny double-check dialogue lines
+        isLockdownMode = true;
+        currentLineIndex = -1; 
+      }
+    }
+    
+    // B. HANDLE SELECTING "YES" ON THE FINAL CHOICE
+    else if (isLockdownMode && currentLineIndex >= 0 && lockdownDialogue[currentLineIndex].type === "choice") {
+      // User clicked "Yes" (the next button) -> Move to the real chaotic lockdown screen
+      altButton.style.display = "none"; 
+      nextButton.innerText = "Next";
+      triggerLockdownVisuals();
+    }
+
+    clearInterval(typingTimer);
+    currentLineIndex++;
+    
+    // Re-evaluate pool after potential index updates
+    currentPool = isLockdownMode ? lockdownDialogue : normalDialogue;
+
+    if (currentLineIndex < currentPool.length) {
+      let fullText = currentPool[currentLineIndex].text;
+
+      dialogueText.innerHTML = "";
+      for (let i = 0; i < fullText.length; i++) {
+        let char = fullText.charAt(i);
+        if (char === " ") {
+          dialogueText.innerHTML += "<span>&nbsp;</span>";
+        } else {
+          dialogueText.innerHTML += `<span class="ghost">${char}</span>`;
+        }
+      }
+
+      const letters = dialogueText.querySelectorAll('span');
+      let currentCharacterIndex = 0;
+      
+      // Sweat/jitter animation rules
+      characterImg.className = isLockdownMode ? "talking" : "talking"; 
+
+      typingTimer = setInterval(() => {
+        if (currentCharacterIndex < letters.length) {
+          letters[currentCharacterIndex].classList.remove('ghost');
+          currentCharacterIndex++;
+        } else {
+          clearInterval(typingTimer); 
+          characterImg.className = "idle"; 
+
+          // C. SHOW UI BASED ON LINE TYPE AFTER TYPING FINISHES
+          if (!isLockdownMode && normalDialogue[currentLineIndex].type === "question") {
+            userInput.style.display = "inline-block";
+            userInput.focus();
+            nextButton.innerText = "Submit";
+          } 
+          // IF IT'S A CHOICE: Show both buttons side-by-side!
+          else if (isLockdownMode && lockdownDialogue[currentLineIndex].type === "choice") {
+            nextButton.innerText = "Yes...";
+            altButton.style.display = "inline-block"; // Make the "No" button appear
+          }
+        }
+      }, 30); 
+
+    } else {
+      if (isLockdownMode) {
+        dialogueText.innerText = "SYSTEM TERMINATED.";
+        nextButton.style.display = "none"; 
+      } else {
+        dialogueText.innerText = "Thats pretty much it.";
+        currentLineIndex = -1;
+        nextButton.innerText = "Restart";
+      }
+    }
+  }
+
+  // D. IF THE USER CLICKS "NO"
+  function selectAlternative() {
+    clearInterval(typingTimer);
+    
+    // Reset everything back to the naming prompt!
+    isLockdownMode = false;
+    currentLineIndex = 2; // Jump back exactly to the question block in normalDialogue array
+    
+    altButton.style.display = "none"; // Hide the "No" button again
+    nextButton.innerText = "Submit";
+    
+    dialogueText.innerHTML = normalDialogue[currentLineIndex].text; // Skip typewriter effect for instant reload
+    userInput.style.display = "inline-block";
+    userInput.focus();
+  }
+
+  function triggerLockdownVisuals() {
+    document.body.classList.add("lockdown-active");
+    characterImg.className = "lockdown-panic";
+  }
+
+
+  </script>
+  </body>
+</html>
+

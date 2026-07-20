@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Rock Paper Scissors</title>
+  </head>
+  <body>
+    <p>Rock Paper Scissors</p>
+
+
+       
+    <button onclick="
+      const randomNumber = Math.random();
+      console.log (randomNumber);
+
+      if (randomNumber >=0 && randomNumber < 1/3) {
+        alert ('Your opponent played rock. You tied.');
+      }
+      else if (randomNumber >=1/3 && randomNumber <2/3) {
+        alert ('Your opponent played paper. You lost.')
+      }
+      else {
+        alert ('Your opponent played scissors. You win!')
+      }
+    ">Rock</button>
+
+  
+
+    <button onclick="
+      const randomNumber = Math.random();
+      console.log (randomNumber);
+
+      if (randomNumber >=0 && randomNumber <= 1/3) {
+        alert ('Your opponent played rock. You Win!');
+      }
+      else if (randomNumber >1/3 && randomNumber <= 2/3) {
+        alert ('Your opponent played paper. You tied.')
+      }
+      else {
+        alert ('Your opponent played scissors. You lose.')
+      }
+    ">Paper</button>
+
+        
+    <button onclick="
+    
+      const randomNumber = Math.random();
+      console.log (randomNumber);
+
+      if (randomNumber >= 1/3 && randomNumber <= 2/3) {
+
+        //if the randomNumber is more than 1/3 but less than 2/3 it is considered a win becuase the player pressed the scissors button and the computer chose paper
+
+        alert ('Your opponent played paper. You win!')
+      }
+      else if (randomNumber >=0  && randomNumber <= 1/3) {
+        alert ('Your opponent played rock. You lose.')
+      }
+      else {
+        alert ('Your opponent played scissors. You tied.')
+      }
+    ">Scissors</button>
+
+
+
+  <script>
+    let tailsStreak = 0;
+    let headsStreak = 1;
+    
+    function flipCoin() { 
+      const randomNumber = Math.random();
+      console.log (randomNumber);
+
+      if (randomNumber <= 0.5) {
+        alert ('Heads! Streak: ' + headsStreak);
+        tailsStreak = 0
+        headsStreak = headsStreak + 1
+      
+      }
+      else {
+        alert ('Tails! Streak: ' + tailsStreak);
+        tailsStreak = tailsStreak + 1
+        headsStreak = 0
+      }
+    
+    }
+   </script>
+
+   <button onclick="flipCoin()">Coin Flip</button>
+
+   <script>
+    function pickComputerMove () {
+
+      
+    }
+
+
+
+   </script>
+
+
+
+  </body>
+
+</html>

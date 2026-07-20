@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Bottom of the 9th :3</title>
+
+    <style>
+      body {
+        background-image: url('field.jpg');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+
+        font-family: 'Courier New', Courier, monospace;
+        display: flex; 
+        flex-direction: column; 
+        align-items: center;
+        justify-content: space-between; 
+        height: 100vh;
+        margin: 0;
+        padding: 30px 0; 
+        box-sizing: border-box;
+        user-select: none; 
+        -webkit-user-select: none;
+        overflow: hidden;
+        transition: background-image 0.2s ease-in-out;
+      }
+
+      /* Preload assets so the transition doesn't flash white */
+      #preloader-1 { position: absolute; width: 1px; height: 1px; opacity: 0.01; z-index: -999; }
+      #preloader-2 { position: absolute; width: 1px; height: 1px; opacity: 0.01; z-index: -999; }
+
+      #scoreboard {
+        background: rgba(30, 63, 32, 0.9); 
+        color: #ffeb3b;
+        border: 3px solid #fff;
+        padding: 12px;
+        width: 350px;
+        text-align: center;
+        font-weight: bold;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.5), inset 0 0 10px #000;
+        z-index: 5;
+      }
+
+      #field-zone {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent; 
+        overflow: hidden;
+        z-index: 1;
+      }
+
+      .grand-slam-shake {
+        animation: hit-shake 0.4s ease-in-out;
+      }
+
+      @keyframes hit-shake {
+        0% { transform: translate(0, 0); }
+        10% { transform: translate(-6px, 4px); }
+        30% { transform: translate(6px, -4px); }
+        50% { transform: translate(-4px, -2px); }
+        70% { transform: translate(4px, 4px); }
+        90% { transform: translate(-2px, 1px); }
+        100% { transform: translate(0, 0); }
+      }
+
+      /* Squish animation for Lau's head impact */
+      .lau-squish {
+        animation: squish-impact 0.4s ease-in-out;
+        animation-delay: 0.63s;
+        transform-origin: bottom center; /* Keeps the feet/base planted while the head squishes */
+      }
+
+      @keyframes squish-impact {
+        0% { transform: scale(1); }
+        20% { transform: scale(1.15, 0.75); } /* Widens to 115%, squishes down to 75% height */
+        40% { transform: scale(0.95, 1.05); } /* Slight rebound overshoot */
+        70% { transform: scale(1.02, 0.98); } /* Tiny secondary settle */
+        100% { transform: scale(1); }
+      }
+
+      /* Spectator Lau hidden inside the stands until Stage 3 */
+      #spectator-lau {
+        position: absolute;
+        bottom: 15%;
+        left: 45%;
+        width: 260px;
+        height: 320px;
+        
+        /* MULTI-EXTENSION FALLBACK: The browser cycles through these until it finds one that works */
+        background-image: 
+          url('IMG_7576.png'), 
+          url('IMG_7576.PNG'), 
+          url('IMG_7576.png.png'), 
+          url('IMG_7576.jpg'), 
+          url('IMG_7576.jpeg'),
+          url('IMG_7576.JPG'),
+          url('lau.png');
+
+        background-size: contain;
+        background-position: center;
+        background-repeat: no-repeat;
+        display: none;
+        z-index: 50;
+        filter: drop-shadow(0px 8px 12px rgba(0,0,0,0.4));
+      }
+
+      /* Pitcher Container Zone */
+      #pitcher-zone {
+        position: absolute;
+        top: 38%; 
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 110px;  
+        height: 138px; 
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        transform-origin: bottom center;
+        z-index: 2;
+      }
+
+      #pitcher-zone.windup {
+        transform: translate(-50%, -50%) scaleY(0.85) scaleX(1.08);
+      }
+
+      #pitcher-zone.release {
+        transform: translate(-50%, -50%) scaleY(1.08) scaleX(0.92);
+      }
+
+      #pitcher-sprite {
+        width: 100%;
+        height: 100%;
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: bold;
+      }
+
+      /* MASSIVE FLOATING MUSTACHE BOSS OVERRIDES */
+      #pitcher-zone.boss-stache-mode {
+        top: 5%; 
+        width: 320px;  
+        height: 180px;
+        transform: translate(-50%, -50%); 
+      }
+
+      #pitcher-zone.boss-stache-mode.windup {
+        transform: translate(-50%, -50%) scaleY(0.4) scaleX(1.1);
+      }
+
+      #pitcher-zone.boss-stache-mode.release {
+        transform: translate(-50%, -50%) scaleY(1.1) scaleX(0.95);
+      }
+
+      #pitcher-sprite.boss-stache {
+        background-size: contain;
+        background-position: center;
+        filter: drop-shadow(0px 12px 16px rgba(0,0,0,0.6));
+      }
+
+      /* The Ball */
+      #ball {
+        position: absolute;
+        top: 38%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 16px;
+        height: 16px;
+        background: radial-gradient(circle at 30% 30%, #ffffff 40%, #e6e6e6 100%);
+        border: 1px solid #999;
+        border-radius: 50%;
+        display: none;
+        z-index: 10;
+        box-shadow: 
+          inset 3px 0px 0px -1px rgba(231, 76, 60, 0.7), 
+          inset -3px 0px 0px -1px rgba(231, 76, 60, 0.7),
+          0 4px 6px rgba(0,0,0,0.3);
+      }
+
+      #ball.blast-to-stands {
+        display: block !important;
+        z-index: 200; 
+        transition: top 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94), 
+                    left 0.7s linear, 
+                    width 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94), 
+                    height 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      }
+
+      #ball.reentry-drop {
+        display: block !important;
+        z-index: 200;
+        transition: top 0.6s cubic-bezier(0.47, 0, 0.745, 0.715), 
+                    left 0.6s linear, 
+                    width 0.6s linear, 
+                    height 0.6s linear;
+      }
+
+      #ball.bleacher-bounce {
+        display: block !important;
+        z-index: 200;
+        transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                    left 0.4s linear;
+      }
+
+      #batter-zone {
+        position: absolute;
+        bottom: 20%;
+        left: 48%;
+        transform: translateX(-50%);
+        width: 180px;  
+        height: 225px; 
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 3;
+      }
+
+      #character {
+        width: 180px;  
+        height: 225px; 
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        transition: background-image 0.05s ease;
+      }
+
+      .state-stance {
+        background-image: url('stance1.jpg');
+      }
+
+      .state-swing {
+        background-image: url('swing1.jpg');
+      }
+
+      #ui-controls {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        max-width: 500px;
+        z-index: 5;
+        gap: 12px;
+      }
+
+      #qte-bar-container {
+        width: 90%;
+        height: 24px;
+        background: rgba(221, 221, 221, 0.9);
+        border: 3px solid #333;
+        border-radius: 12px;
+        position: relative;
+        overflow: hidden;
+        display: none;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      }
+
+      #qte-hit-zone {
+        position: absolute;
+        top: 0;
+        left: 70%; 
+        width: 15%;
+        height: 100%;
+        background: #2ecc71; 
+      }
+
+      #qte-indicator {
+        position: absolute;
+        top: 0;
+        left: 0%;
+        width: 8px;
+        height: 100%;
+        background: #e74c3c;
+      }
+
+      #dialogue-box {
+        background: rgba(255, 255, 255, 0.95);          
+        border: 3px solid #333;     
+        border-radius: 10px;        
+        padding: 12px;              
+        width: 90%;               
+        height: 75px;              
+        box-shadow: 4px 4px 0px #333;
+        box-sizing: border-box;
+      }
+
+      #dialogue-text {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.4;
+        font-weight: bold;
+        text-align: center;
+      }
+
+      button {
+        background-color: #ffb7b2;
+        border: 3px solid #333;
+        padding: 12px 40px;
+        font-size: 18px;
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: bold;
+        cursor: pointer;
+        border-radius: 6px;
+        box-shadow: 4px 4px 0px #333;
+      }
+
+      button:active {
+        transform: translate(2px, 2px);
+        box-shadow: 2px 2px 0px #333;
+      }
+
+      /* CUTSCENE SYSTEM STYLING */
+      #cutscene-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        box-sizing: border-box;
+      }
+
+      #cutscene-portrait-box {
+        width: 240px;
+        height: 240px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        position: relative;
+        transition: background 0.3s ease;
+      }
+
+      .cutscene-stache-png-render {
+        width: 220px;
+        height: 140px;
+        background-image: url('mou.png');
+        background-size: contain;
+        background-position: center;
+        background-repeat: no-repeat;
+        transform: scale(1.4); 
+        filter: drop-shadow(0px 6px 10px rgba(0,0,0,0.5));
+      }
+
+      .cutscene-image-render {
+        width: 100%;
+        height: 100%;
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+      }
+
+      #cutscene-dialogue-box {
+        background: #fff;
+        border: 4px solid #333;
+        border-radius: 12px;
+        padding: 20px;
+        width: 80%;
+        max-width: 500px;
+        text-align: center;
+        box-shadow: 6px 6px 0px #333;
+      }
+
+      #cutscene-speaker {
+        font-size: 14px;
+        color: #e74c3c;
+        margin: 0 0 8px 0;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+
+      #cutscene-speech {
+        font-size: 18px;
+        margin: 0;
+        line-height: 1.5;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Preloading assets -->
+    <img id="preloader-1" src="bleachers.jpg" alt="" />
+    <img id="preloader-2" src="IMG_7576.png" alt="" />
+
+    <div id="cutscene-overlay">
+      <div id="cutscene-portrait-box"></div>
+      <div id="cutscene-dialogue-box">
+        <p id="cutscene-speaker">Pitcher 1</p>
+        <p id="cutscene-speech">Dialogue details go here.</p>
+      </div>
+      <button id="cutscene-continue-btn">READY</button>
+    </div>
+
+    <div id="scoreboard">
+      PITCHER: <span id="pitcher-num">1</span>/3 | STRIKES: <span id="outs-count">0</span>
+    </div>
+
+    <div id="field-zone">
+      <div id="pitcher-zone">
+        <div id="pitcher-sprite"></div>
+      </div>
+      <div id="spectator-lau"></div>
+      <div id="ball"></div>
+      <div id="batter-zone">
+        <div id="character" class="state-stance"></div>
+      </div>
+    </div>
+
+    <div id="ui-controls">
+      <div id="qte-bar-container">
+        <div id="qte-hit-zone"></div>
+        <div id="qte-indicator"></div>
+      </div>
+
+      <div id="dialogue-box">
+        <p id="dialogue-text">Welcome to the Big Leagues!</p>
+      </div>
+
+      <button id="action-btn">PLAY</button>
+    </div>
+
+    <script>
+      let currentPitcher = 1;
+      let outs = 0;
+      let gameState = "idle"; 
+
+      const sndPitch = new Audio('pitch.mp3');
+      const sndSwing = new Audio('swing.mp3');
+      const sndHit = new Audio('hit.mp3');
+      const lauHit = new Audio('bonk.mp3');
+      
+      const pitcherSpeeds = {
+        1: 1200, 
+        2: 800,  
+        3: 500   
+      };
+
+      const pitcherNames = {
+        1: "Sombr",
+        2: "Dream",
+        3: "Babes' Mustache"
+      };
+
+      const cutsceneData = {
+        1: {
+          speaker: "Sombr",
+          text: "Think you can handle my baseline, off-speed, break, screw-curve-fastball? Let's see it.",
+          render: (el) => {
+            el.innerHTML = "<div class='cutscene-image-render' style='background-image: url(\"sombr.jpg\");'></div>";
+          }
+        },
+        2: {
+          speaker: "Dream",
+          text: "That's what the point of the mask is!",
+          render: (el) => {
+            el.innerHTML = "<div class='cutscene-image-render' style='background-image: url(\"dream.jpg\");'></div>";
+          }
+        },
+        3: {
+          speaker: "Davy Baby's Mustache",
+          text: "Don’t let your mind wander baby girl, you’re mine.",
+          render: (el) => {
+            el.innerHTML = "<div class='cutscene-stache-png-render'></div>";
+          }
+        }
+      };
+
+      const actionBtn = document.getElementById("action-btn");
+      const dialogueText = document.getElementById("dialogue-text");
+      const ball = document.getElementById("ball");
+      const qteContainer = document.getElementById("qte-bar-container");
+      const qteIndicator = document.getElementById("qte-indicator");
+      const pitcherZone = document.getElementById("pitcher-zone");
+      const pitcherSprite = document.getElementById("pitcher-sprite");
+      const pitcherNumUI = document.getElementById("pitcher-num");
+      const outsUI = document.getElementById("outs-count");
+      const character = document.getElementById("character");
+      const fieldZone = document.getElementById("field-zone");
+      const batterZone = document.getElementById("batter-zone");
+      const spectatorLau = document.getElementById("spectator-lau");
+
+      const cutsceneOverlay = document.getElementById("cutscene-overlay");
+      const cutscenePortraitBox = document.getElementById("cutscene-portrait-box");
+      const cutsceneSpeaker = document.getElementById("cutscene-speaker");
+      const cutsceneSpeech = document.getElementById("cutscene-speech");
+      const cutsceneContinueBtn = document.getElementById("cutscene-continue-btn");
+
+      let qteStartTime;
+      let qteDuration;
+      let qteIntervalId;
+
+      let startTopPercent = 38; 
+      const endTopPercent = 70;   
+
+      setupPitcherAppearance(1);
+      triggerCutscene(1);
+
+      actionBtn.addEventListener("click", () => {
+        if (gameState === "idle") {
+          gameState = "winding-up";
+          pitcherZone.classList.add("windup");
+          
+          if (currentPitcher === 3) {
+            dialogueText.innerText = "Davy Baby's Mustache is compressing energy...";
+          } else {
+            dialogueText.innerText = `${pitcherNames[currentPitcher]} winds up...`;
+          }
+          
+          setTimeout(() => {
+            pitcherZone.classList.remove("windup");
+            pitcherZone.classList.add("release");
+            startPitch();
+            
+            setTimeout(() => {
+              pitcherZone.classList.remove("release");
+            }, 200);
+          }, 400); 
+        } else if (gameState === "pitching") {
+          triggerSwingAnimation();
+          swingBat();
+        } else if (gameState === "ended") {
+          resetGame();
+        }
+      });
+
+      cutsceneContinueBtn.addEventListener("click", () => {
+        cutsceneOverlay.style.display = "none";
+        gameState = "idle";
+        actionBtn.innerText = "PLAY";
+        dialogueText.innerText = `${pitcherNames[currentPitcher]} is on the mound. Press PLAY to step up to the plate!`;
+      });
+
+      function triggerCutscene(stageNum) {
+        gameState = "cutscene";
+        cutsceneOverlay.style.display = "flex";
+        
+        cutscenePortraitBox.style.background = "transparent";
+        cutscenePortraitBox.style.border = "none";
+        cutscenePortraitBox.style.boxShadow = "none";
+
+        const data = cutsceneData[stageNum];
+        cutsceneSpeaker.innerText = data.speaker;
+        cutsceneSpeech.innerText = data.text;
+        
+        data.render(cutscenePortraitBox);
+      }
+
+      function setupPitcherAppearance(pitcherNum) {
+        pitcherZone.className = ""; 
+        pitcherSprite.className = "";
+        pitcherSprite.style.background = ""; 
+        pitcherSprite.style.backgroundImage = "";
+        pitcherSprite.style.border = "none";
+        pitcherSprite.style.borderRadius = "0";
+        pitcherSprite.style.boxShadow = "none";
+        pitcherSprite.innerText = "";
+        pitcherZone.style.display = "flex";
+
+        if (pitcherNum === 1 || pitcherNum === 2) {
+          pitcherZone.style.top = "38%";
+          pitcherZone.style.width = "110px";
+          pitcherZone.style.height = "138px";
+          pitcherSprite.style.backgroundSize = "cover"; 
+          
+          if (pitcherNum === 1) {
+            pitcherSprite.style.backgroundImage = "url('sombr.jpg')";
+          } else {
+            pitcherSprite.style.backgroundImage = "url('dream.jpg')";
+          }
+        } else if (pitcherNum === 3) {
+          pitcherZone.classList.add("boss-stache-mode");
+          pitcherSprite.classList.add("boss-stache");
+          pitcherSprite.style.backgroundImage = "url('mou.png')"; 
+          pitcherSprite.style.backgroundSize = "contain"; 
+        }
+      }
+
+      function startPitch() {
+        gameState = "pitching";
+        actionBtn.innerText = "SWING!";
+        dialogueText.innerText = `Here it comes!`;
+
+        const baseSpeed = 1200;
+        const currentSpeed = pitcherSpeeds[currentPitcher];
+        sndPitch.playbackRate = baseSpeed / currentSpeed;
+
+        sndPitch.currentTime = 0;
+        sndPitch.play();
+        
+        startTopPercent = (currentPitcher === 3) ? 10 : 38; 
+
+        ball.className = "";
+        ball.style.left = "50%";
+        ball.style.opacity = "1";
+
+        ball.style.display = "block";
+        ball.style.top = startTopPercent + "%";
+        ball.style.width = "16px";
+        ball.style.height = "16px";
+        qteContainer.style.display = "block";
+        
+        qteDuration = currentSpeed;
+        qteStartTime = performance.now();
+
+        qteIntervalId = requestAnimationFrame(updatePitchLoop);
+      }
+
+      function updatePitchLoop(timestamp) {
+        if (gameState !== "pitching") return;
+
+        let elapsed = timestamp - qteStartTime;
+        let progress = elapsed / qteDuration;
+
+        if (progress > 1) progress = 1;
+
+        let currentTop = startTopPercent + (endTopPercent - startTopPercent) * progress;
+        ball.style.top = currentTop + "%";
+        
+        let size = 16 + (32 * progress);
+        ball.style.width = size + "px";
+        ball.style.height = size + "px";
+
+        qteIndicator.style.left = (progress * 100) + "%";
+
+        if (progress < 1) {
+          qteIntervalId = requestAnimationFrame(updatePitchLoop);
+        } else {
+          handleStrikeout("STRIKE! Swing blud");
+        }
+      }
+
+      function triggerSwingAnimation() {
+        character.classList.remove("state-stance");
+        character.classList.add("state-swing");
+
+        setTimeout(() => {
+          character.classList.remove("state-swing");
+          character.classList.add("state-stance");
+        }, 500); 
+      }
+
+      function swingBat() {
+        cancelAnimationFrame(qteIntervalId);
+        
+        let elapsed = performance.now() - qteStartTime;
+        let progress = elapsed / qteDuration;
+        let accuracyPercent = progress * 100;
+
+        if (accuracyPercent >= 70 && accuracyPercent <= 85) {
+          sndHit.currentTime = 0;
+          sndHit.play();
+          handleHomeRun();
+        } else {
+          sndSwing.currentTime = 0;
+          sndSwing.play();
+          handleStrikeout("STRIKE! Bad timing on your swing!");
+        }
+      }
+
+      function handleHomeRun() {
+        gameState = "cooling-down";
+        qteContainer.style.display = "none";
+        spectatorLau.classList.add("lau-squish");
+      
+        
+        fieldZone.classList.add("grand-slam-shake");
+        setTimeout(() => {
+          fieldZone.classList.remove("grand-slam-shake");
+        }, 400);
+
+        if (currentPitcher === 3) {
+          dialogueText.innerText = "IT'S A POP UP FLY BALL HIGH INTO THE BLEACHERS!";
+          
+          ball.style.top = "70%";
+          ball.style.left = "50%";
+          
+          setTimeout(() => {
+            ball.className = "";
+            ball.classList.add("blast-to-stands");
+            
+            ball.style.top = "-200px";
+            ball.style.left = "60%"; 
+            ball.style.width = "140px";
+            ball.style.height = "140px";
+          }, 20);
+
+          setTimeout(() => {
+            document.body.style.backgroundImage = "url('bleachers.jpg')";
+            
+            pitcherZone.style.display = "none";
+            batterZone.style.display = "none";
+            
+            spectatorLau.style.display = "block";
+
+            ball.className = "";
+            ball.style.top = "-100px";
+            ball.style.left = "65%";
+            ball.style.width = "70px";
+            ball.style.height = "70px";
+
+            setTimeout(() => {
+              ball.classList.add("reentry-drop");
+              dialogueText.innerText = "The ball is falling directly towards Lau in the stands!...";
+              
+              ball.style.top = "44%"; 
+              ball.style.left = "62.5%";
+              ball.style.width = "22px";
+              ball.style.height = "22px";
+            }, 50);
+
+            setTimeout(() => {
+              ball.className = "";
+              ball.classList.add("bleacher-bounce");
+              dialogueText.innerText = "*BONK !* Direct hit on Lau's forehead! Incredible collision!";
+              
+              spectatorLau.classList.add("lau-squish");
+              lauHit.currentTime = 0.55;
+              lauHit.play();
+
+              ball.style.top = "38%";
+              ball.style.left = "66%";
+
+              setTimeout(() => {
+                ball.style.top = "72%"; 
+                ball.style.left = "59%";
+                
+                
+                gameState = "ended";
+                dialogueText.innerText = "The ball bounces into Lau! You won the World Series!";
+                actionBtn.innerText = "PLAY AGAIN";
+              }, 400);
+
+            }, 650); 
+
+          }, 2200); 
+
+        } else {
+          ball.style.display = "none";
+          dialogueText.innerText = `HOME RUN!! You smashed ${pitcherNames[currentPitcher]}'s pitch!`;
+          
+          currentPitcher++;
+          setTimeout(() => {
+            pitcherNumUI.innerText = currentPitcher;
+            setupPitcherAppearance(currentPitcher);
+            triggerCutscene(currentPitcher);
+          }, 1500);
+        }
+      }
+
+      function handleStrikeout(reasonText) {
+        gameState = "cooling-down";
+        ball.style.display = "none";
+        qteContainer.style.display = "none";
+        outs++;
+        outsUI.innerText = outs;
+
+        if (outs >= 3) {
+          gameState = "ended";
+          dialogueText.innerText = `${reasonText} 3 OUTS! Game Over! The home team loses.`;
+          actionBtn.innerText = "TRY AGAIN";
+        } else {
+          dialogueText.innerText = `${reasonText} Get ready for the next try.`;
+          actionBtn.innerText = "NEXT PITCH";
+          gameState = "idle";
+        }
+      }
+
+      function resetGame() {
+        currentPitcher = 1;
+        outs = 0;
+        outsUI.innerText = "0";
+        pitcherNumUI.innerText = "1";
+        
+        document.body.style.backgroundImage = "url('field.jpg')";
+        batterZone.style.display = "flex";
+        spectatorLau.style.display = "none";
+        
+        character.className = "state-stance"; 
+        ball.className = "";
+        ball.style.display = "none";
+        
+        setupPitcherAppearance(1);
+        triggerCutscene(1);
+      }
+    </script>
+  </body>
+</html>

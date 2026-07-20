@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>McMaster Sign Language Club Calendar</title>
+
+    <link rel="icon" type="image/png" href="logo.png">
+    
+    <!-- FullCalendar Library -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+    
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+        body { display: flex; flex-direction: column; height: 100vh; background-color: #f4f6f9; }
+        
+        /* NAVIGATION HEADER */
+        header {
+            background-color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 30px;
+            border-bottom: 2px solid #e0e0e0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .header-left { display: flex; align-items: center; }
+        .logo-home-link { display: flex; align-items: center; text-decoration: none; color: inherit; transition: opacity 0.2s; }
+        .logo-home-link:hover { opacity: 0.85; }
+        
+        /* LOGO FIX */
+        .logo-container { 
+            width: 60px; 
+            height: 60px; 
+            overflow: hidden; 
+            border-radius: 50%; 
+            margin-right: 20px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            background-color: #000;
+            flex-shrink: 0; 
+        }
+        .logo-container img { 
+            width: 110%; 
+            height: 110%; 
+            object-fit: cover; 
+            aspect-ratio: 1 / 1; 
+            transform: scale(1.05); 
+        }
+
+        header h1 { font-size: 1.6rem; color: #222; font-weight: 700; }
+        
+        .header-right-controls { display: flex; align-items: center; gap: 20px; }
+        nav { display: flex; align-items: center; gap: 25px; margin-right: 30px; }
+        nav a { text-decoration: none; color: #555; font-size: 1rem; font-weight: 600; padding: 6px 0; border-bottom: 2px solid transparent; transition: all 0.2s ease-in-out; }
+        nav a:hover { color: #72bdcf; }
+        nav a.active-page { color: #222; border-bottom: 2px solid #8cd3e4; }
+
+        #adminAuthBtn { background-color: #333; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: background 0.2s; }
+        #adminAuthBtn:hover { background-color: #555; }
+
+        /* MAIN CONTENT LAYOUT */
+        .main-content { display: flex; flex-grow: 1; height: calc(100vh - 92px); }
+        
+        #sidebar { 
+            width: 300px; 
+            background-color: #ffffff; 
+            padding: 20px; 
+            border-right: 1px solid #e0e0e0; 
+            display: none; 
+            flex-direction: column; 
+            gap: 15px; 
+        }
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        #sidebar h2 { font-size: 1.1rem; color: #333; }
+        #closeSidebarBtn { background: none; border: none; color: #ff4d4d; font-size: 0.85rem; font-weight: 600; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+        #closeSidebarBtn:hover { background-color: #ffe6e6; }
+
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group label { font-size: 0.85rem; font-weight: 600; color: #666; }
+        .form-group input, .form-group select, .form-group textarea { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; background-color: white; font-family: inherit; }
+        .form-group textarea { resize: vertical; }
+
+        #addEventBtn { background-color: #8cd3e4; color: #222; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; transition: background 0.2s; }
+        #addEventBtn:hover { background-color: #72bdcf; }
+
+        #calendar-container { flex-grow: 1; padding: 30px; overflow-y: auto; }
+        #calendar { background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); }
+
+        /* FullCalendar Styling */
+        .fc .fc-button-primary { background-color: #8cd3e4 !important; border-color: #8cd3e4 !important; color: #222 !important; font-weight: bold !important; }
+        .fc .fc-button-primary:hover { background-color: #72bdcf !important; border-color: #72bdcf !important; }
+
+        /* RESTORED MODAL POP-UP OVERLAY BOX STYLES */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.5); 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999; 
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        .modal-overlay.modal-active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background-color: #ffffff;
+            width: 90%;
+            max-width: 500px;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            position: relative;
+            transform: translateY(-20px);
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .modal-overlay.modal-active .modal-card {
+            transform: translateY(0);
+        }
+
+        .modal-close-x {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #aaa;
+            cursor: pointer;
+            line-height: 1;
+            transition: color 0.15s;
+        }
+        .modal-close-x:hover { color: #333; }
+
+        #modalTitle { font-size: 1.4rem; color: #222; margin-bottom: 4px; padding-right: 25px; }
+        #modalDate {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #f0f2f5;
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        #modalDescription { font-size: 0.95rem; color: #555; line-height: 1.6; white-space: pre-wrap; }
+
+        /* MOBILE RESPONSIVE STYLES */
+        @media (max-width: 768px) {
+            header { flex-direction: column; gap: 15px; padding: 15px; text-align: center; }
+            .header-right-controls { flex-direction: column; width: 100%; gap: 15px; }
+            nav { margin-right: 0; justify-content: center; }
+            #adminAuthBtn { width: 100%; padding: 12px; }
+            .main-content { flex-direction: column; height: auto; }
+            #sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e0e0e0; }
+            #calendar-container { padding: 10px; }
+            #calendar { padding: 10px; }
+            
+            /* Clean stacked buttons arrangement for mobile phones */
+            .fc .fc-header-toolbar { display: flex !important; flex-direction: column !important; gap: 12px !important; align-items: center !important; }
+            .fc .fc-toolbar-chunk { display: flex !important; justify-content: center !important; width: 100% !important; }
+            .fc .fc-toolbar-title { font-size: 1.25rem !important; text-align: center !important; }
+            .fc .fc-button { padding: 6px 10px !important; font-size: 0.85rem !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="index.html" class="logo-home-link">
+            <div class="header-left">
+                <div class="logo-container">
+                    <img src="logo.png" alt="McMaster SLC Logo">
+                </div>
+                <h1>McMaster Sign Language Club</h1>
+            </div>
+        </a>
+
+        <div class="header-right-controls">
+            <nav>
+                <a href="index.html">Home</a>
+                <a href="game.html">Game</a>
+                <a href="calendar.html" class="active-page">Calendar</a>
+                <a href="about.html">About Us</a>
+            </nav>
+            <button id="adminAuthBtn">Admin Login</button>
+        </div>
+    </header>
+
+    <div class="main-content">
+        <!-- Admin Sidebar with Restored Description Box -->
+        <div id="sidebar">
+            <div class="sidebar-header">
+                <h2>Add New Event</h2>
+                <button id="closeSidebarBtn">Leave Editing</button>
+            </div>
+            <div class="form-group">
+                <label for="eventTitle">Event Title</label>
+                <input type="text" id="eventTitle" placeholder="e.g., ASL Social Night">
+            </div>
+            <div class="form-group">
+                <label for="eventDescription">Description / Location Details</label>
+                <textarea id="eventDescription" placeholder="Room details, meeting objectives, snacks..." rows="4"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="eventDate">Date</label>
+                <input type="date" id="eventDate">
+            </div>
+            <div class="form-group">
+                <label for="eventType">Type</label>
+                <select id="eventType">
+                    <option value="event">Special Event (Purple)</option>
+                    <option value="meeting">Weekly Meeting (Teal)</option>
+                </select>
+            </div>
+            <button id="addEventBtn">Add to Calendar</button>
+        </div>
+
+        <!-- Calendar Display -->
+        <div id="calendar-container">
+            <div id="calendar"></div>
+        </div>
+    </div>
+
+    <!-- RESTORED DETAILS POPUP MODAL -->
+    <div class="modal-overlay" id="eventModal">
+        <div class="modal-card">
+            <button class="modal-close-x" id="modalCloseBtn">&times;</button>
+            <h3 id="modalTitle">Event Title</h3>
+            <div id="modalDate">🗓️ Date text</div>
+            <p id="modalDescription">Detailed information text goes here.</p>
+        </div>
+    </div>
+
+    <script>
+        const DATABASE_URL = "https://mac-slc-home-default-rtdb.firebaseio.com/events.json";
+        const SECRET_CODE = "MacSLC2026";
+        
+        let calendar;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                editable: false,
+                
+                // Fetch Global Events from Firebase
+                events: function(info, successCallback, failureCallback) {
+                    fetch(DATABASE_URL)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data) { successCallback([]); return; }
+                        let eventsArray = Object.keys(data).map(key => {
+                            let rawDate = data[key].start;
+                            let formattedDate = rawDate;
+
+                            if (rawDate) {
+                                const options = { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' };
+                                formattedDate = new Date(rawDate).toLocaleDateString('en-US', options);
+                            }
+
+                            return {
+                                id: key,
+                                title: data[key].title,
+                                start: rawDate,
+                                backgroundColor: data[key].color,
+                                textColor: data[key].textColor,
+                                extendedProps: {
+                                    description: data[key].description || "No description provided for this entry.",
+                                    displayDate: formattedDate
+                                }
+                            };
+                        });
+                        successCallback(eventsArray);
+                    })
+                    .catch(error => failureCallback(error));
+                },
+                
+                // Context-Aware Click Processing
+                eventClick: function(info) {
+                    const eventDesc = info.event.extendedProps.description;
+                    const eventDateStr = info.event.extendedProps.displayDate;
+
+                    if (document.getElementById('sidebar').style.display === 'flex') {
+                        if (confirm(`Delete the public event: "${info.event.title}"?\n\nDate: ${eventDateStr}\n\nDetails: ${eventDesc}`)) {
+                            let deleteUrl = DATABASE_URL.replace("events.json", `events/${info.event.id}.json`);
+                            fetch(deleteUrl, { method: 'DELETE' })
+                            .then(() => {
+                                info.event.remove();
+                                alert("Event removed globally!");
+                            });
+                        }
+                    } else {
+                        // Open sleek descriptive modal if not in editing mode
+                        document.getElementById('modalTitle').innerText = info.event.title;
+                        document.getElementById('modalDate').innerHTML = '🗓️ ' + eventDateStr;
+                        document.getElementById('modalDescription').innerText = eventDesc;
+                        document.getElementById('eventModal').classList.add('modal-active');
+                    }
+                }
+            });
+
+            calendar.render();
+
+            // Modal Interactions Closer Controls
+            const closeBtn = document.getElementById('modalCloseBtn');
+            const modalOverlay = document.getElementById('eventModal');
+
+            closeBtn.addEventListener('click', function() {
+                modalOverlay.classList.remove('modal-active');
+            });
+
+            modalOverlay.addEventListener('click', function(e) {
+                if (e.target === modalOverlay) {
+                    modalOverlay.classList.remove('modal-active');
+                }
+            });
+
+            // Admin Access
+            document.getElementById('adminAuthBtn').addEventListener('click', function() {
+                if (prompt("Enter the Admin Passcode:") === SECRET_CODE) {
+                    document.getElementById('sidebar').style.display = 'flex';
+                    this.style.display = 'none'; 
+                } else {
+                    alert("Incorrect code.");
+                }
+            });
+
+            document.getElementById('closeSidebarBtn').addEventListener('click', function() {
+                document.getElementById('sidebar').style.display = 'none'; 
+                document.getElementById('adminAuthBtn').style.display = 'block'; 
+            });
+
+            // Push New Event with Descriptions to Database
+            document.getElementById('addEventBtn').addEventListener('click', function() {
+                var title = document.getElementById('eventTitle').value;
+                var description = document.getElementById('eventDescription').value;
+                var date = document.getElementById('eventDate').value;
+                var type = document.getElementById('eventType').value;
+
+                if (!title || !date) { alert('Please fill in title and date!'); return; }
+
+                var bgColor = '#b39ddb'; // Purple
+                var txtColor = '#222222'; // Black text
+                
+                if (type === 'meeting') {
+                    bgColor = '#8cd3e4'; // Teal
+                }
+
+                let newEvent = { 
+                    title: title, 
+                    description: description, 
+                    start: date, 
+                    color: bgColor, 
+                    textColor: txtColor 
+                };
+
+                fetch(DATABASE_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newEvent)
+                })
+                .then(() => {
+                    calendar.refetchEvents();
+                    document.getElementById('eventTitle').value = '';
+                    document.getElementById('eventDescription').value = '';
+                    document.getElementById('eventDate').value = '';
+                })
+                .catch(err => alert("Error saving: " + err));
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Locked Box Room</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            animation: fadeInBlack 4s ease-in-out;
+        }
+
+        @keyframes fadeInBlack {
+            0% {
+                background-color: #000000;
+                opacity: 0;
+            }
+            100% {
+                background-color: #1a1a1a;
+                opacity: 1;
+            }
+        }
+
+        .room-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background-color: #2b2b2b;
+            border: 4px solid #444;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        /* Birthday Header Banner */
+        .birthday-header {
+            position: absolute;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 28px;
+            font-weight: bold;
+            color: #ffcc00;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 30;
+            letter-spacing: 2px;
+            white-space: nowrap;
+        }
+
+        /* Background photos (switching views) */
+        .room-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+            display: none;
+        }
+
+        .room-bg.active {
+            display: block;
+        }
+
+        /* Navigation Arrows to switch between background photos */
+        .nav-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: 2px solid #888;
+            padding: 15px 12px;
+            cursor: pointer;
+            z-index: 4;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 5px;
+            transition: background 0.2s;
+        }
+
+        .nav-arrow:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+
+        #prevBtn { left: 15px; }
+        #nextBtn { right: 15px; }
+
+        /* The Box element */
+        .box-container {
+            position: absolute;
+            bottom: 150px;
+            left: 350px;
+            width: 100px;
+            height: 80px;
+            cursor: pointer;
+            z-index: 2;
+            transition: transform 0.2s ease;
+        }
+
+        .box-container:hover {
+            transform: scale(1.05);
+        }
+
+        .box-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* Full-screen reveal image displayed when the box is opened */
+        .reveal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            z-index: 20;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .reveal-img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+        }
+
+        /* Notification message display */
+        .message-box {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: 1px solid #666;
+            z-index: 25;
+            display: none;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="room-container">
+        <!-- Birthday Header -->
+        <div class="birthday-header">HAPPY BIRTHDAY</div>
+
+        <!-- 1. Background Photo 1 -->
+        <img src="toxel.png" alt="Room View 1" class="room-bg active" id="bg1">
+
+        <!-- 2. Background Photo 2 -->
+        <img src="rowlet.png" alt="Room View 2" class="room-bg" id="bg2">
+
+        <!-- Navigation Buttons to switch between the two photos -->
+        <button class="nav-arrow" id="prevBtn" onclick="switchBackground()">&#10094;</button>
+        <button class="nav-arrow" id="nextBtn" onclick="switchBackground()">&#10095;</button>
+
+        <!-- Notification Banner -->
+        <div class="message-box" id="messageBox"></div>
+
+        <!-- 3. The Box Element -->
+        <div class="box-container" id="boxContainer" onclick="tryOpenBox()">
+            <img src="boxlock.jpg" alt="Box" class="box-img" id="boxImage">
+        </div>
+
+        <!-- Full-screen reveal image container (replaces everything when opened) -->
+        <div class="reveal-overlay" id="revealOverlay">
+            <img src="letter.jpg" alt="Revealed Item" class="reveal-img" id="revealImg">
+        </div>
+    </div>
+
+    <script>
+        let isBoxOpen = false;
+        let currentBg = 1; // Tracks which background photo is active (1 or 2)
+
+        function switchBackground() {
+            // If the box is already open, block background switching
+            if (isBoxOpen) return;
+
+            const bg1 = document.getElementById('bg1');
+            const bg2 = document.getElementById('bg2');
+            const boxContainer = document.getElementById('boxContainer');
+
+            if (currentBg === 1) {
+                // Switch to Photo 2
+                bg1.classList.remove('active');
+                bg2.classList.add('active');
+                currentBg = 2;
+
+                // Hide the box when looking at the second photo view
+                boxContainer.style.display = 'none';
+            } else {
+                // Switch back to Photo 1
+                bg2.classList.remove('active');
+                bg1.classList.add('active');
+                currentBg = 1;
+
+                // Show the box again on photo 1 view
+                boxContainer.style.display = 'block';
+            }
+        }
+
+        function showMessage(text) {
+            const msgBox = document.getElementById('messageBox');
+            msgBox.innerText = text;
+            msgBox.style.display = 'block';
+            setTimeout(() => {
+                msgBox.style.display = 'none';
+            }, 3000);
+        }
+
+        function tryOpenBox() {
+            if (isBoxOpen) return;
+
+            // Check if player has the key from another HTML page stored in localStorage
+            // To test manually, run in console: localStorage.setItem('hasKey', 'true');
+            const hasKey = localStorage.getItem('hasKey');
+
+            if (hasKey === 'true') {
+                isBoxOpen = true;
+                
+                // Hide background arrows, header, and box container
+                document.getElementById('prevBtn').style.display = 'none';
+                document.getElementById('nextBtn').style.display = 'none';
+                document.getElementById('boxContainer').style.display = 'none';
+                
+                // Also hide the birthday header so it clears completely with everything else
+                document.querySelector('.birthday-header').style.display = 'none';
+                
+                // Show the full-screen reveal image overlay
+                document.getElementById('revealOverlay').style.display = 'flex';
+                
+                showMessage("You unlocked the box!");
+            } else {
+                showMessage("It's locked. You need to find a key first!");
+            }
+        }
+    </script>
+</body>
+</html>

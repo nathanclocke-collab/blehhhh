@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gimble's Blackjack Table</title>
+    <style>
+        body {
+            background-color: #1c502c; /* Casino green */
+            color: white;
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .game-container {
+            max-width: 600px;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            box-sizing: border-box;
+        }
+
+        /* --- GIMBLE & DIALOGUE STYLES --- */
+        #character-zone {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 20px auto; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #character {
+            width: 120px;   
+            height: 120px;  
+            position: absolute;
+            --char-offset-y: 0px;
+            top: var(--char-offset-y);
+            z-index: 2; 
+        }
+
+        #character-sprite {
+            width: 100%;
+            height: 100%;
+            background-image: url("gimble.png");
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            image-rendering: pixelated;
+        }
+
+        .idle {
+            animation: bounce 1.2s infinite ease-in-out;
+        }
+
+        .talking {
+            animation: jitter 0.3s infinite linear;
+        }
+
+        @keyframes bounce {
+            0%, 100% { top: var(--char-offset-y); }
+            50% { top: calc(var(--char-offset-y) - 8px); }
+        }
+
+        @keyframes jitter { 
+            0% { transform: translate(0, 0); }
+            50% { transform: translate(1px, -2px); }
+            100% { transform: translate(-1px, 0); }
+        }
+
+        #dialogue-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        #dialogue-box {
+            background: #fdfbf7;          
+            border: 3px solid #333;     
+            border-radius: 10px;        
+            padding: 15px;              
+            width: 100%;
+            max-width: 400px;               
+            height: 100px;              
+            margin-bottom: 15px;        
+            box-shadow: 4px 4px 0px #111;
+            text-align: left;
+            box-sizing: border-box;
+            color: black;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+        }
+
+        #dialogue-text {
+            margin: 0;
+            line-height: 1.5;
+            letter-spacing: 0.5px;
+            font-size: 15px;
+        }
+        
+        #dialogue-text span {
+            display: inline-block;
+        }
+
+        .ghost {
+            visibility: hidden;
+        }
+
+        #user-input {
+            display: none;
+            margin-bottom: 15px;
+            padding: 8px;
+            font-family: monospace;
+            border: 2px solid #333;
+            border-radius: 5px;
+            width: 250px;
+        }
+
+        .dialogue-btn {
+            background-color: #ffb7b2;
+            border: 2px solid #333;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 2px 2px 0px #111;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            color: black;
+        }
+
+        .dialogue-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 0px 0px 0px #111;
+        }
+
+        /* --- BLACKJACK STYLES --- */
+        #blackjack-ui {
+            display: none; 
+        }
+
+        #give-deck-btn {
+            display: none;
+            margin: 0 auto 20px auto;
+            background-color: #b71c1c;
+            color: #fdfbf7;
+        }
+
+        #betting-zone {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        #betting-zone h3 {
+            margin: 0;
+            color: #ffd166;
+        }
+
+        #bet-input {
+            width: 80px;
+            padding: 5px;
+            font-size: 1rem;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .playing-field {
+            margin: 20px 0;
+        }
+
+        .hand {
+            margin-bottom: 20px;
+        }
+
+        .cards {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            min-height: 120px;
+            margin-top: 10px;
+        }
+
+        .card {
+            width: 80px;
+            height: 120px;
+            background-color: white;
+            color: black;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            box-shadow: 3px 3px 5px rgba(0,0,0,0.3);
+            border: 1px solid #ccc;
+            animation: dealIn 0.3s ease;
+        }
+
+        @keyframes dealIn {
+            from { opacity: 0; transform: translateY(-20px) scale(0.85); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .flip-card {
+            padding: 0;
+            background: none;
+            box-shadow: none;
+            border: none;
+            perspective: 1000px;
+        }
+
+        .flip-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.5s ease;
+            transform-style: preserve-3d;
+        }
+
+        .flip-card.flipped .flip-inner {
+            transform: rotateY(180deg);
+        }
+
+        .flip-front, .flip-back {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            box-shadow: 3px 3px 5px rgba(0,0,0,0.3);
+            border: 1px solid #ccc;
+        }
+
+        .flip-front {
+            background-image: repeating-linear-gradient(45deg, #7f0000, #7f0000 8px, #b71c1c 8px, #b71c1c 16px);
+        }
+
+        .flip-back {
+            background-color: white;
+            color: black;
+            transform: rotateY(180deg);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        #deal-btn { background-color: #ffcc00; color: black; }
+        #hit-btn { background-color: #2196F3; color: white; }
+        #stand-btn { background-color: #f44336; color: white; }
+        #leave-btn { background-color: #9e9e9e; color: white; }
+
+        button:disabled {
+            background-color: #555 !important;
+            color: #888;
+            cursor: not-allowed;
+        }
+
+        #message-el {
+            font-size: 1.3rem;
+            font-style: italic;
+            margin-top: 20px;
+            color: #ffeb3b;
+        }
+    </style>
+</head>
+<body onload="startDialogue()">
+    <div class="game-container">
+        
+        <!-- Gimble & Dialogue Zone -->
+        <div id="character-zone">
+            <div id="character" class="idle">
+                <div id="character-sprite"></div>
+            </div>
+        </div>
+
+        <div id="dialogue-container">
+            <div id="dialogue-box">
+                <p id="dialogue-text"></p>
+            </div>
+            <input id="user-input" type="text" placeholder="Type here...">
+            <button id="next-btn" class="dialogue-btn" onclick="advanceDialogue()">Next</button>
+        </div>
+
+        <!-- Blackjack UI -->
+        <div id="blackjack-ui">
+
+            <button id="give-deck-btn" class="dialogue-btn">Give Gimble the Old Deck</button>
+
+            <div id="betting-zone">
+                <h3>Bankroll: $<span id="bankroll-display">0</span></h3>
+                <div>
+                    <label for="bet-input"><strong>Bet: $</strong></label>
+                    <input type="number" id="bet-input" value="5" min="1" step="1">
+                </div>
+            </div>
+
+            <div class="playing-field">
+                <div class="hand" id="dealer-hand">
+                    <h2>Dealer's Hand <span id="dealer-score" style="display:none;">0</span></h2>
+                    <div class="cards" id="dealer-cards"></div>
+                </div>
+                
+                <div class="hand" id="player-hand">
+                    <h2>Your Hand <span id="player-score">0</span></h2>
+                    <div class="cards" id="player-cards"></div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button id="hit-btn" disabled>Hit</button>
+                <button id="stand-btn" disabled>Stand</button>
+                <button id="deal-btn">Deal</button>
+                <button id="leave-btn">Leave Table</button>
+            </div>
+
+            <p id="message-el">Place your bet and hit Deal.</p>
+        </div>
+
+    </div>
+
+    <script>
+        // --- DIALOGUE SYSTEM ---
+        let dialogueLines = [
+            { text: "Oink oink... Ahem. Excuse me.", type: "normal" },
+            { text: "Welcome to my table. I'm Gimble.", type: "normal" },
+            { text: "Before we get down to business... are you here to win or just to lose your life savings?", type: "question" },
+            { text: "Is that so? We'll see about that.", type: "normal" },
+            { text: "The rules are standard Blackjack. Don't go over 21.", type: "normal" },
+            { text: "Let's play.", type: "end" }
+        ];
+
+        let currentLineIndex = -1; 
+        let typingTimer;
+        let playerNameInput = "";
+
+        const dialogueText = document.getElementById('dialogue-text');
+        const nextButton = document.getElementById('next-btn');
+        const userInput = document.getElementById('user-input');
+        const characterImg = document.getElementById('character');
+        const dialogueContainer = document.getElementById('dialogue-container');
+        const blackjackUI = document.getElementById('blackjack-ui');
+        const giveDeckBtn = document.getElementById('give-deck-btn');
+
+        function startDialogue() {
+            advanceDialogue();
+        }
+
+        function advanceDialogue() {
+            if (currentLineIndex >= 0 && dialogueLines[currentLineIndex].type === "kick") {
+                window.location.href = 'blackjackMap.html';
+                return; 
+            }
+
+            if (currentLineIndex >= 0 && dialogueLines[currentLineIndex].type === "question") {
+                if (userInput.value.trim() === "") {
+                    return; 
+                }
+                playerNameInput = userInput.value.trim();
+                userInput.value = "";
+                userInput.style.display = "none";
+            }
+
+            clearInterval(typingTimer);
+            currentLineIndex++;
+            
+            if (currentLineIndex < dialogueLines.length) {
+                if (dialogueLines[currentLineIndex].type === "end") {
+                    dialogueContainer.style.display = "none";
+                    blackjackUI.style.display = "block";
+                    characterImg.className = "idle";
+                    initBankroll();
+                    checkGiveDeckButton();
+                } else {
+                    triggerTypingAnimation(dialogueLines[currentLineIndex].text, dialogueLines[currentLineIndex].type);
+                }
+            }
+        }
+
+        function triggerTypingAnimation(fullText, type) {
+            dialogueText.innerHTML = "";
+            characterImg.className = "talking";
+            
+            for (let i = 0; i < fullText.length; i++) {
+                let char = fullText.charAt(i);
+                if (char === " ") {
+                    dialogueText.innerHTML += "<span>&nbsp;</span>";
+                } else {
+                    dialogueText.innerHTML += `<span class="ghost">${char}</span>`;
+                }
+            }
+
+            const letters = dialogueText.querySelectorAll('span');
+            let currentCharacterIndex = 0;
+            
+            typingTimer = setInterval(() => {
+                if (currentCharacterIndex < letters.length) {
+                    letters[currentCharacterIndex].classList.remove('ghost');
+                    currentCharacterIndex++;
+                } else {
+                    clearInterval(typingTimer); 
+                    characterImg.className = "idle";
+                    
+                    if (type === "question") {
+                        userInput.style.display = "inline-block";
+                        userInput.focus();
+                        nextButton.innerText = "Reply";
+                    } else if (type === "kick") {
+                        nextButton.innerText = "Leave"; 
+                    } else {
+                        nextButton.innerText = "Next";
+                    }
+                }
+            }, 30); 
+        }
+
+        // --- SIDE DIALOGUE SEQUENCES (give-the-deck / receive-the-key) ---
+        let sequenceLines = [];
+        let sequenceIndex = -1;
+        let sequenceCallback = null;
+
+        function startSequence(lines, onComplete) {
+            clearInterval(typingTimer);
+            blackjackUI.style.display = "none";
+            dialogueContainer.style.display = "flex";
+            userInput.style.display = "none";
+            characterImg.className = "idle";
+
+            sequenceLines = lines;
+            sequenceIndex = -1;
+            sequenceCallback = onComplete;
+
+            nextButton.onclick = advanceSequence;
+            advanceSequence();
+        }
+
+        function advanceSequence() {
+            clearInterval(typingTimer);
+            sequenceIndex++;
+
+            if (sequenceIndex < sequenceLines.length) {
+                triggerTypingAnimation(sequenceLines[sequenceIndex], "normal");
+            } else {
+                dialogueContainer.style.display = "none";
+                blackjackUI.style.display = "block";
+                nextButton.onclick = advanceDialogue;
+                const cb = sequenceCallback;
+                sequenceCallback = null;
+                if (cb) cb();
+            }
+        }
+
+        // --- ECONOMY & BETTING SYSTEM ---
+        let bankroll = 5; 
+        let currentBet = 0;
+
+        const bankrollDisplay = document.getElementById('bankroll-display');
+        const betInput = document.getElementById('bet-input');
+
+        function initBankroll() {
+            bankroll = 5; 
+            localStorage.setItem('playerBankroll', bankroll);
+            // Reset the deck handover state for a fresh playthrough
+            localStorage.removeItem('hasOldDeck');
+            updateBankrollDisplay();
+        }
+
+        function updateBankrollDisplay() {
+            bankrollDisplay.textContent = bankroll;
+            localStorage.setItem('playerBankroll', bankroll); 
+        }
+
+        // KICK OUT SEQUENCE
+        function triggerKickOut() {
+            blackjackUI.style.display = "none";
+            dialogueContainer.style.display = "flex";
+            
+            dialogueLines = [
+                { text: "Well, well, well... tapped out, are we?", type: "normal" },
+                { text: "How unfortunate.", type: "normal" },
+                { text: "Now scram! Skedaddle, kid!", type: "kick" }
+            ];
+            
+            currentLineIndex = -1;
+            nextButton.onclick = advanceDialogue;
+            advanceDialogue();
+        }
+
+        // --- OLD DECK HAND-OVER ---
+        function checkGiveDeckButton() {
+            const hasCollectedDeck = localStorage.getItem('deckCollected') === 'true';
+            const alreadyGaveDeck = localStorage.getItem('hasOldDeck') === 'true';
+
+            if (hasCollectedDeck && !alreadyGaveDeck) {
+                giveDeckBtn.style.display = "inline-block";
+            } else {
+                giveDeckBtn.style.display = "none";
+            }
+        }
+
+        giveDeckBtn.addEventListener('click', () => {
+            giveDeckBtn.style.display = "none";
+
+            startSequence([
+                "Wait a moment... is that what I think it is?",
+                "An old deck... where did you dig this up?!",
+                "Alright, alright. Put mine away. We play with this one.",
+                "Straight odds this time. No more funny business... from me, anyway."
+            ], () => {
+                localStorage.setItem('hasOldDeck', 'true');
+                messageEl.textContent = "Gimble swaps in the old deck. The game is fair now. Place your bet and hit Deal.";
+            });
+        });
+
+        // --- KEY REWARD ---
+        function maybeAwardKey() {
+            const fairGame = localStorage.getItem('hasOldDeck') === 'true';
+            const alreadyHasKey = localStorage.getItem('hasKey') === 'true';
+
+            if (!fairGame || alreadyHasKey) return;
+
+            setTimeout(() => {
+                startSequence([
+                    "...Well, I'll be. Fair and square.",
+                    "Nobody's beaten this table straight in years.",
+                    "Here - take this. It's not much use to me anymore.",
+                    "Something tells me it'll open more than it looks like it should."
+                ], () => {
+                    localStorage.setItem('hasKey', 'true');
+                    messageEl.textContent = "You received a key! Place your bet and hit Deal.";
+                });
+            }, 900);
+        }
+
+        // --- BLACKJACK GAME SYSTEM ---
+        let deck = [];
+        let playerHand = [];
+        let dealerHand = [];
+        let playerScore = 0;
+        let dealerScore = 0;
+        let gameInProgress = false;
+
+        const hitBtn = document.getElementById('hit-btn');
+        const standBtn = document.getElementById('stand-btn');
+        const dealBtn = document.getElementById('deal-btn');
+        const leaveBtn = document.getElementById('leave-btn');
+        const playerCardsEl = document.getElementById('player-cards');
+        const dealerCardsEl = document.getElementById('dealer-cards');
+        const playerScoreEl = document.getElementById('player-score');
+        const dealerScoreEl = document.getElementById('dealer-score');
+        const messageEl = document.getElementById('message-el');
+
+        function playerHasOldDeck() {
+            return localStorage.getItem('hasOldDeck') === 'true';
+        }
+
+        function cardBaseValue(card) {
+            if (card.value === 'A') return 11;
+            if (['J', 'Q', 'K'].includes(card.value)) return 10;
+            return parseInt(card.value);
+        }
+
+        function riggedDealerStartHand() {
+            let idx = deck.map((c, i) => i).sort((a, b) => cardBaseValue(deck[a]) - cardBaseValue(deck[b]));
+            const first = deck.splice(idx[0], 1)[0];
+            idx = deck.map((c, i) => i).sort((a, b) => cardBaseValue(deck[a]) - cardBaseValue(deck[b]));
+            const second = deck.splice(idx[0], 1)[0];
+            return [first, second];
+        }
+
+        async function riggedDealerPlay(targetMin) {
+            while (calculateHandValue(dealerHand) < targetMin) {
+                let bestIndex = -1;
+                let bestValue = -1;
+                for (let i = 0; i < deck.length; i++) {
+                    const testValue = calculateHandValue(dealerHand.concat([deck[i]]));
+                    if (testValue <= 21 && testValue > bestValue) {
+                        bestValue = testValue;
+                        bestIndex = i;
+                    }
+                }
+                if (bestIndex === -1) break; 
+                const [chosenCard] = deck.splice(bestIndex, 1);
+                dealerHand.push(chosenCard);
+                await revealCard(chosenCard, dealerCardsEl);
+                updateScores(true);
+            }
+        }
+
+        let audioCtx = null;
+        function playFlipSound() {
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                const duration = 0.09;
+                const bufferSize = Math.floor(audioCtx.sampleRate * duration);
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+                }
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'highpass';
+                filter.frequency.value = 1200;
+                const gainNode = audioCtx.createGain();
+                gainNode.gain.setValueAtTime(0.35, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+                noise.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                noise.start();
+                noise.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                console.warn('Audio playback unavailable:', e);
+            }
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function createFlipCard(card) {
+            const cardDiv = document.createElement('div');
+            cardDiv.classList.add('card', 'flip-card');
+            const inner = document.createElement('div');
+            inner.classList.add('flip-inner');
+            const front = document.createElement('div'); 
+            front.classList.add('flip-front');
+            const back = document.createElement('div'); 
+            back.classList.add('flip-back');
+            back.innerText = `${card.value}${card.suit}`;
+            if (card.suit === '♥' || card.suit === '♦') {
+                back.style.color = 'red';
+            }
+            inner.appendChild(front);
+            inner.appendChild(back);
+            cardDiv.appendChild(inner);
+            return cardDiv;
+        }
+
+        async function revealCard(card, containerEl, dealDelay = 200, flipPause = 650) {
+            const cardDiv = createFlipCard(card);
+            containerEl.appendChild(cardDiv);
+            await sleep(dealDelay);
+            playFlipSound();
+            void cardDiv.offsetWidth; 
+            cardDiv.classList.add('flipped');
+            await sleep(flipPause);
+        }
+
+        function buildDeck() {
+            const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            const suits = ['♣', '♦', '♥', '♠'];
+            let newDeck = [];
+            for (let s = 0; s < suits.length; s++) {
+                for (let v = 0; v < values.length; v++) {
+                    newDeck.push({ value: values[v], suit: suits[s] });
+                }
+            }
+            return newDeck;
+        }
+
+        function shuffleDeck(deckToShuffle) {
+            for (let i = deckToShuffle.length - 1; i > 0; i--) {
+                let j = Math.floor(Math.random() * (i + 1));
+                let temp = deckToShuffle[i];
+                deckToShuffle[i] = deckToShuffle[j];
+                deckToShuffle[j] = temp;
+            }
+            return deckToShuffle;
+        }
+
+        function calculateHandValue(hand) {
+            let value = 0;
+            let aceCount = 0;
+            for (let card of hand) {
+                if (card.value === 'A') {
+                    aceCount += 1;
+                    value += 11;
+                } else if (['J', 'Q', 'K'].includes(card.value)) {
+                    value += 10;
+                } else {
+                    value += parseInt(card.value);
+                }
+            }
+            while (value > 21 && aceCount > 0) {
+                value -= 10;
+                aceCount -= 1;
+            }
+            return value;
+        }
+
+        function renderPlayerHand() {
+            playerCardsEl.innerHTML = '';
+            playerHand.forEach(card => {
+                const cardDiv = document.createElement('div');
+                cardDiv.classList.add('card');
+                cardDiv.innerText = `${card.value}${card.suit}`;
+                if (card.suit === '♥' || card.suit === '♦') {
+                    cardDiv.style.color = 'red';
+                }
+                playerCardsEl.appendChild(cardDiv);
+            });
+        }
+
+        function updateScores(showDealer = false) {
+            playerScore = calculateHandValue(playerHand);
+            playerScoreEl.textContent = playerScore;
+            
+            if (showDealer) {
+                dealerScore = calculateHandValue(dealerHand);
+                dealerScoreEl.textContent = dealerScore;
+                dealerScoreEl.style.display = "inline";
+            } else {
+                dealerScoreEl.style.display = "none";
+            }
+        }
+
+        async function startGame() {
+            const requestedBet = parseInt(betInput.value);
+            if (isNaN(requestedBet) || requestedBet <= 0) {
+                messageEl.textContent = "Please enter a valid bet amount.";
+                return;
+            }
+            if (requestedBet > bankroll) {
+                messageEl.textContent = "You don't have enough money!";
+                return;
+            }
+
+            currentBet = requestedBet;
+            bankroll -= currentBet;
+            updateBankrollDisplay();
+            betInput.disabled = true;
+
+            dealBtn.disabled = true;
+            hitBtn.disabled = true;
+            standBtn.disabled = true;
+            leaveBtn.disabled = true;
+            messageEl.textContent = "Gimble is dealing...";
+            dealerScoreEl.style.display = "none";
+
+            deck = shuffleDeck(buildDeck());
+
+            playerHand = [deck.pop(), deck.pop()];
+            renderPlayerHand();
+            updateScores();
+
+            dealerCardsEl.innerHTML = '';
+            dealerHand = [];
+            gameInProgress = true;
+
+            const fairGame = playerHasOldDeck();
+            const initialDealerCards = fairGame ? [deck.pop(), deck.pop()] : riggedDealerStartHand();
+
+            for (const card of initialDealerCards) {
+                dealerHand.push(card);
+                await revealCard(card, dealerCardsEl);
+            }
+            
+            updateScores(true);
+
+            hitBtn.disabled = false;
+            standBtn.disabled = false;
+            messageEl.textContent = fairGame ? "The deck feels different this time... Hit or Stand?" : "Your move. Hit or Stand?";
+
+            if (playerScore === 21) {
+                endGame("Blackjack! You win!", 'blackjack');
+            }
+        }
+
+        function hit() {
+            if (!gameInProgress) return;
+            playerHand.push(deck.pop());
+            renderPlayerHand();
+            updateScores(true);
+
+            if (playerScore > 21) {
+                endGame("You busted! Gimble wins.", 'loss');
+            }
+        }
+
+        async function stand() {
+            if (!gameInProgress) return;
+            hitBtn.disabled = true;
+            standBtn.disabled = true;
+            messageEl.textContent = "Gimble is playing...";
+
+            if (playerHasOldDeck()) {
+                while (calculateHandValue(dealerHand) < 17) {
+                    const card = deck.pop();
+                    dealerHand.push(card);
+                    await revealCard(card, dealerCardsEl);
+                    updateScores(true);
+                }
+            } else {
+                const targetMin = Math.min(21, playerScore + 1);
+                await riggedDealerPlay(targetMin);
+            }
+
+            updateScores(true);
+            const finalPlayer = playerScore;
+            const finalDealer = dealerScore;
+
+            if (finalDealer > 21) {
+                endGame("Gimble busted! You win!", 'win');
+            } else if (finalPlayer > finalDealer) {
+                endGame("You win!", 'win');
+            } else if (finalDealer > finalPlayer) {
+                endGame("Gimble wins.", 'loss');
+            } else {
+                endGame("It's a tie (Push)!", 'push');
+            }
+        }
+
+        function endGame(message, result) {
+            if (result === 'win') {
+                bankroll += currentBet * 2; 
+            } else if (result === 'blackjack') {
+                bankroll += currentBet * 2.5; 
+            } else if (result === 'push') {
+                bankroll += currentBet; 
+            }
+            
+            betInput.disabled = false;
+            updateBankrollDisplay();
+
+            messageEl.textContent = message;
+            gameInProgress = false;
+            hitBtn.disabled = true;
+            standBtn.disabled = true;
+            leaveBtn.disabled = false;
+            
+            if (bankroll > 0) {
+                dealBtn.disabled = false;
+                dealBtn.textContent = "Play Again";
+            } else {
+                dealBtn.disabled = true;
+                leaveBtn.disabled = true;
+                betInput.disabled = true;
+                setTimeout(triggerKickOut, 2000); 
+            }
+
+            if (result === 'win' || result === 'blackjack') {
+                maybeAwardKey();
+            }
+        }
+
+        leaveBtn.addEventListener('click', () => {
+            window.location.href = 'blackjackMap.html';
+        });
+
+        dealBtn.addEventListener('click', startGame);
+        hitBtn.addEventListener('click', hit);
+        standBtn.addEventListener('click', stand);
+    </script>
+</body>
+</html>

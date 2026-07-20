@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <title>Happy Birthday!!</title>
+
+    <!-- CSS -->
+    <style>
+        body {
+          background-color: #7B9669;
+          font-family: 'Courier New', Courier, monospace;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          margin: 0;
+          overflow: hidden; /* Keeps memes from making scrollbars */
+          user-select: none;
+          -webkit-user-select: none;
+        }
+
+        #game-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          position: relative;
+          z-index: 10; /* Keeps text above the flying memes */
+        }
+
+        #dialogue-box {
+          background: white;          
+          border: 3px solid #333;     
+          border-radius: 10px;        
+          padding: 15px;              
+          width: 300px;               
+          height: 120px;              
+          margin-bottom: 15px;        
+          box-shadow: 4px 4px 0px #333;
+          text-align: left;
+          box-sizing: border-box;
+          overflow: hidden;     
+          opacity: 0;
+          z-index: 10;
+          animation:
+            fadeIN 1s ease-out forwards,
+            pulse 1.5s ease-in-out 1s infinite alternate;
+        }
+
+        @keyframes fadeIN {
+          from {
+              opacity: 0;
+              transform: translateY(20px);
+          }
+          to {
+              opacity: 1;
+              transform: translateY(0);
+          }
+        }
+
+        @keyframes pulse {
+          from { transform: scale(1); }
+          to { transform: scale(1.1); }
+        }
+
+        /* STUPID SPINNING MEME STYLES */
+        .meme-sticker {
+          position: absolute;
+          width: 120px; /* Adjust size of the memes here */
+          height: auto;
+          border: 2px solid #333;
+          border-radius: 5px;
+          box-shadow: 3px 3px 0px rgba(0,0,0,0.5);
+          animation: spinStupid 2s linear infinite, floatRandom 4s ease-in-out infinite alternate;
+          z-index: 1;
+        }
+
+        @keyframes spinStupid {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        @keyframes floatRandom {
+          0% { margin-top: 0px; margin-left: 0px; }
+          100% { margin-top: 30px; margin-left: -30px; }
+        }
+    </style>
+    </head>
+
+    <body>
+        <!-- AUDIO ELEMENT (Replace "birthday-audio.mp3" with your actual audio filename) -->
+        <audio id="bg-audio" autoplay loop>
+            <source src="ignore my ringtone.wav" type="audio/mp3">
+            Your browser does not support the audio element.
+        </audio>
+
+        <div id="game-container">
+            <h1>HAPPY BIRTHDAY</h1>
+            <h4>there is nothing else to look for</h4>
+        </div>
+
+        <div id="dialogue-box">
+            <p>Happy Birthday toooo youuuuu</p>
+        </div>
+
+        <!-- JAVASCRIPT TO PLASTER THE MEMES EVERYWHERE -->
+        <script>
+            const memeFiles = [
+                'images-2.jpg', 
+                'cat.jpg', 
+                'autistic.jpg', 
+                'dih.jpg', 
+                'headphones.jpg',
+                'vodka.jpg'
+            ];
+
+            // Change this number to spawn more or fewer total memes
+            const totalMemesToSpawn = 40;
+
+            for (let i = 0; i < totalMemesToSpawn; i++) {
+                let img = document.createElement('img');
+                // Randomly pick one of your uploaded memes
+                img.src = memeFiles[Math.floor(Math.random() * memeFiles.length)];
+                img.classList.add('meme-sticker');
+
+                // Random placement across the screen coordinates
+                let randomX = Math.random() * (window.innerWidth - 150);
+                let randomY = Math.random() * (window.innerHeight - 150);
+
+                img.style.left = randomX + 'px';
+                img.style.top = randomY + 'px';
+
+                // Randomize spin speeds so they don't spin in sync (making it look stupider)
+                let randomSpinSpeed = 1 + Math.random() * 3; // between 1s and 4s
+                img.style.animationDuration = `${randomSpinSpeed}s, 3s`;
+
+                document.body.appendChild(img);
+            }
+
+            // Fallback: If browser blocks autoplay, start audio on first click anywhere on the page
+            document.addEventListener('click', function() {
+                const audio = document.getElementById('bg-audio');
+                if (audio.paused) {
+                    audio.play();
+                }
+            }, { once: true });
+        </script>
+    </body>
+</html>

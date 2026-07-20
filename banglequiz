@@ -1,0 +1,14 @@
+require("Storage").writeJSON("flashcards.json", [ 
+  { "f": "OARS", "b": "Open-ended questions, Affirm client values, Reflect back what they're saying, Summerize actions" }, 
+  { "f": "SMART Goals", "b": "Specific, Measureable, Attainable, Realistic, Time sensitive" }, 
+  { "f": "Open Goals", "b": "See how well you can do mindset" }, 
+  { "f": "Secondary Components Of Fitness", "b": "Balance, Coordination, Agility, Reaction Time, Speed, Power, Mental Capacity" }, 
+  { "f": "FITT", "b": "Frequency, Intensity, Time, Type" }, 
+  { "f": "Four systems that synthesize ATP", "b": "ATP-CP, Anaerobic, Aerobic, Fatty Acid Oxidaiton System" }, 
+  { "f": "Anaerobic Metabolic Systems", "b": "Without Oxygen - short, high intensity bursts that exceed oxygen supply forcing reliment on stored energy and muscle" }, 
+  { "f": "Aerobic Metabolic Systems", "b": "Continuous - moderate intensity where heart supplies enough oxygen to fuel your muscles building endurance" }, 
+  { "f": "How many months of action phase before maitenence", "b": "6 months of action" }, 
+  { "f": "EPOC", "b": "Excess postexercise oxygen consumption" }, 
+  { "f": "Stroke Volume", "b": "amount of blood that the left ventricle ejects in one beat - more fit = larger ventricles" }, 
+  { "f": "Cardiac output", "b": "Q = StrokeVolume * HeartRate" }, 
+  { "f": "Heart rate max eqn", "b": "HRmax = 220-age" } ]);

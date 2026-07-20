@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tilemap Grid Line Surfer</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #1a202c;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #gameCanvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            background-color: #2d3748;
+            cursor: crosshair;
+            
+            /* Anti-bleed & pixel art rendering filters */
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+    // --- 1. SETUP & GRID PARAMETERS ---
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const TILE_SIZE = 40; 
+    const CAMERA_ZOOM = 0.65; 
+
+    // --- IMAGE ASSET LOADING ---
+    const iceTileImage = new Image();
+    iceTileImage.src = 'IceSurface.png'; // 1
+
+    const iceUnderImage = new Image();
+    iceUnderImage.src = 'IceUnder.png'; // 2
+
+    const snowDirtImage = new Image();
+    snowDirtImage.src = 'snowDirt.png'; // 3
+
+    const dirtImage = new Image();
+    dirtImage.src = 'dirt.png'; // 4
+
+    const LEVEL_MAP = [
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+        [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+        [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+        [2,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,2],
+        [2,0,0,0,0,0,0,0,0,0,0,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,2,0,2],
+        [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+        [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+        [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,4,4,4,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+        [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+        [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+        [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+        [2,3,3,3,3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+        [2,4,4,4,4,4,4,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [2,4,4,4,4,4,4,4,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+        [2,4,4,4,4,4,4,4,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+        [2,4,4,4,4,4,4,4,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+        [2,4,4,4,4,4,4,4,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+    ];
+
+    const MAP_COLS = LEVEL_MAP[0].length;
+    const MAP_ROWS = LEVEL_MAP.length;
+    const WORLD_WIDTH = MAP_COLS * TILE_SIZE;
+    const WORLD_HEIGHT = MAP_ROWS * TILE_SIZE;
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        camera.width = canvas.width;
+        camera.height = canvas.height;
+    }
+
+    // --- 2. PHYSICS & PLAYER OBJECT ---
+    const GRAVITY = 0.5;
+    const AIR_FRICTION = 0.98;    
+    const GROUND_FRICTION = 0.82; 
+    const SURF_FRICTION = 0.998; 
+    const WALL_SLIDE_SPEED = 1.5;
+
+    const player = {
+        x: 100,
+        y: 200,
+        width: 26,  
+        height: 28,
+        vx: 0,
+        vy: 0,
+        speed: 4.5, 
+        maxRampSpeed: 40, 
+        jumpForce: 12,
+        grounded: false,
+        wallSliding: false,
+        wallDir: 0, 
+        hasInk: false,
+        
+        ridingCurve: null,     
+        curveSegmentIdx: 0,    
+        curveT: 0.0,           
+        surfSpeed: 0.0         
+    };
+
+    const pickups = [
+        { x: 300, y: 220, width: 20, height: 20, active: true },
+        { x: 600, y: 150, width: 20, height: 20, active: true },
+        { x: 1000, y: 200, width: 20, height: 20, active: true }
+    ];
+
+    let isDrawing = false;
+    const curves = []; 
+    let currentCurve = [];
+
+    const camera = {
+        x: 0,
+        y: 0,
+        width: window.innerWidth,
+        height: window.innerHeight
+    };
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function isTileSolid(col, row) {
+        if (col < 0 || col >= MAP_COLS || row < 0 || row >= MAP_ROWS) return true; 
+        const tile = LEVEL_MAP[row][col];
+        return tile === 1 || tile === 2 || tile === 3 || tile === 4;
+    }
+
+    // --- 3. INPUT HANDLING ---
+    const keys = {};
+    window.addEventListener("keydown", (e) => { keys[e.code] = true; });
+    window.addEventListener("keyup", (e) => {
+        if ((e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") && player.vy < 0) {
+            player.vy *= 0.5; 
+        }
+        keys[e.code] = false;
+    });
+
+    function getMouseWorldPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: (e.clientX - rect.left) / CAMERA_ZOOM + camera.x,
+            y: (e.clientY - rect.top) / CAMERA_ZOOM + camera.y
+        };
+    }
+
+    canvas.addEventListener("mousedown", (e) => {
+        if (!player.hasInk) return;
+        isDrawing = true;
+        currentCurve = [];
+        currentCurve.push(getMouseWorldPos(e));
+    });
+
+    canvas.addEventListener("mousemove", (e) => {
+        if (!isDrawing) return;
+        const mousePos = getMouseWorldPos(e);
+        if (currentCurve.length > 0) {
+            const lastPoint = currentCurve[currentCurve.length - 1];
+            if (Math.hypot(mousePos.x - lastPoint.x, mousePos.y - lastPoint.y) > 6) {
+                currentCurve.push(mousePos);
+            }
+        }
+    });
+
+    window.addEventListener("mouseup", () => {
+        if (isDrawing && currentCurve.length > 1) {
+            curves.push(currentCurve);
+            player.hasInk = false; 
+        }
+        isDrawing = false;
+        currentCurve = [];
+    });
+
+    // --- 4. ENGINE CORE LOOP ---
+    function update() {
+        let jumped = false;
+
+        // --- 4A. MOVEMENT ---
+        if (player.ridingCurve) {
+            if (keys["ArrowRight"] || keys["KeyD"]) player.surfSpeed += 0.35;
+            if (keys["ArrowLeft"] || keys["KeyA"])  player.surfSpeed -= 0.35;
+            player.surfSpeed *= SURF_FRICTION;
+
+            if (keys["Space"] || keys["ArrowUp"] || keys["KeyW"]) {
+                const pt1 = player.ridingCurve[player.curveSegmentIdx];
+                const pt2 = player.ridingCurve[player.curveSegmentIdx + 1];
+                if (pt1 && pt2) {
+                    const len = Math.hypot(pt2.x - pt1.x, pt2.y - pt1.y);
+                    player.vx = ((pt2.x - pt1.x) / len) * player.surfSpeed;
+                    player.vy = (((pt2.y - pt1.y) / len) * player.surfSpeed) - player.jumpForce;
+                }
+                player.ridingCurve = null; 
+                player.grounded = false;
+                jumped = true;
+            }
+        } else {
+            if (keys["ArrowRight"] || keys["KeyD"]) {
+                if (player.vx < player.speed) player.vx += 0.4;
+            } else if (keys["ArrowLeft"] || keys["KeyA"]) {
+                if (player.vx > -player.speed) player.vx -= 0.4;
+            } else {
+                player.vx *= player.grounded ? GROUND_FRICTION : AIR_FRICTION;
+            }
+
+            if (keys["Space"] || keys["ArrowUp"] || keys["KeyW"]) {
+                if (player.grounded) {
+                    player.vy = -player.jumpForce;
+                    player.grounded = false;
+                    jumped = true;
+                } else if (player.wallSliding && player.wallDir !== 0) {
+                    player.vy = -player.jumpForce * 0.9;
+                    player.vx = -player.wallDir * (player.speed * 1.6); 
+                    player.wallSliding = false;
+                    jumped = true;
+                }
+            }
+            
+            if (player.wallSliding && player.vy > WALL_SLIDE_SPEED) {
+                player.vy = WALL_SLIDE_SPEED;
+            } else {
+                player.vy += GRAVITY;
+            }
+        }
+
+        player.wallDir = 0;
+        player.wallSliding = false;
+
+        // --- 4B. TILEMAP COLLISION ---
+        if (!player.ridingCurve) {
+            player.x += player.vx;
+            
+            let colLeft  = Math.floor(player.x / TILE_SIZE);
+            let colRight = Math.floor((player.x + player.width) / TILE_SIZE);
+            let rowTop   = Math.floor(player.y / TILE_SIZE);
+            let rowBot   = Math.floor((player.y + player.height) / TILE_SIZE);
+
+            if (player.vx > 0) {
+                if (isTileSolid(colRight, rowTop) || isTileSolid(colRight, rowBot)) {
+                    player.x = colRight * TILE_SIZE - player.width - 0.01;
+                    player.vx = 0;
+                    if (!player.grounded) player.wallDir = 1; 
+                }
+            } else if (player.vx < 0) {
+                if (isTileSolid(colLeft, rowTop) || isTileSolid(colLeft, rowBot)) {
+                    player.x = (colLeft + 1) * TILE_SIZE + 0.01;
+                    player.vx = 0;
+                    if (!player.grounded) player.wallDir = -1; 
+                }
+            }
+
+            player.y += player.vy;
+            
+            colLeft  = Math.floor(player.x / TILE_SIZE);
+            colRight = Math.floor((player.x + player.width) / TILE_SIZE);
+            rowTop   = Math.floor(player.y / TILE_SIZE);
+            rowBot   = Math.floor((player.y + player.height) / TILE_SIZE);
+
+            player.grounded = false;
+            if (player.vy > 0) {
+                if (isTileSolid(colLeft, rowBot) || isTileSolid(colRight, rowBot)) {
+                    player.y = rowBot * TILE_SIZE - player.height - 0.01;
+                    player.vy = 0;
+                    player.grounded = true;
+                }
+            } else if (player.vy < 0) {
+                if (isTileSolid(colLeft, rowTop) || isTileSolid(colRight, rowTop)) {
+                    player.y = (rowTop + 1) * TILE_SIZE + 0.01;
+                    player.vy = 0;
+                }
+            }
+
+            if (player.wallDir !== 0 && !player.grounded && player.vy > 0) {
+                player.wallSliding = true;
+            }
+
+            // --- 4C. RAIL LINE ATTACHMENT ---
+            const playerFootX = player.x + player.width / 2;
+            const allCurves = [...curves];
+            if (isDrawing && currentCurve.length > 1) allCurves.push(currentCurve);
+
+            for (let c = 0; c < allCurves.length; c++) {
+                let curvePoints = allCurves[c];
+                for (let i = 0; i < curvePoints.length - 1; i++) {
+                    let pt1 = curvePoints[i];
+                    let pt2 = curvePoints[i+1];
+
+                    let leftX = Math.min(pt1.x, pt2.x);
+                    let rightX = Math.max(pt1.x, pt2.x);
+                    let leftY = pt1.x < pt2.x ? pt1.y : pt2.y;
+                    let rightY = pt1.x < pt2.x ? pt2.y : pt1.y;
+
+                    if (playerFootX >= leftX && playerFootX <= rightX && rightX - leftX > 0.1) {
+                        let pct = (playerFootX - leftX) / (rightX - leftX);
+                        let lineYAtPlayer = leftY + pct * (rightY - leftY);
+
+                        if (player.vy >= 0 && player.y + player.height >= lineYAtPlayer - 6 && player.y + player.height - player.vy <= lineYAtPlayer + 20) {
+                            player.ridingCurve = curvePoints;
+                            player.curveSegmentIdx = i;
+                            player.curveT = pct;
+                            
+                            const dx = pt2.x - pt1.x;
+                            const dy = pt2.y - pt1.y;
+                            const len = Math.hypot(dx, dy);
+                            
+                            player.surfSpeed = player.vx * (dx / len) + player.vy * (dy / len);
+                            if (Math.abs(player.surfSpeed) < Math.abs(player.vx)) {
+                                player.surfSpeed = player.vx * 1.2; 
+                            }
+                            break;
+                        }
+                    }
+                }
+                if (player.ridingCurve) break;
+            }
+        }
+
+        // --- 4D. CURVED RAIL PHYSICS ---
+        if (player.ridingCurve && !jumped) {
+            const cPoints = player.ridingCurve;
+            let pt1 = cPoints[player.curveSegmentIdx];
+            let pt2 = cPoints[player.curveSegmentIdx + 1];
+
+            const dx = pt2.x - pt1.x;
+            const dy = pt2.y - pt1.y;
+            const segmentLength = Math.hypot(dx, dy);
+            
+            player.surfSpeed += (dy / segmentLength) * GRAVITY * 1.8; 
+            player.surfSpeed = Math.max(-player.maxRampSpeed, Math.min(player.maxRampSpeed, player.surfSpeed));
+            player.curveT += player.surfSpeed / segmentLength;
+
+            while (player.curveT > 1.0 && player.ridingCurve) {
+                if (player.curveSegmentIdx < cPoints.length - 2) {
+                    player.curveT = (player.curveT - 1.0) * segmentLength;
+                    player.curveSegmentIdx++;
+                    pt1 = cPoints[player.curveSegmentIdx];
+                    pt2 = cPoints[player.curveSegmentIdx + 1];
+                    player.curveT /= Math.hypot(pt2.x - pt1.x, pt2.y - pt1.y);
+                } else {
+                    player.vx = (dx / segmentLength) * player.surfSpeed;
+                    player.vy = (dy / segmentLength) * player.surfSpeed;
+                    player.x = pt2.x - player.width / 2;
+                    player.y = pt2.y - player.height;
+                    player.ridingCurve = null;
+                }
+            }
+
+            while (player.curveT < 0.0 && player.ridingCurve) {
+                if (player.curveSegmentIdx > 0) {
+                    player.curveSegmentIdx--;
+                    pt1 = cPoints[player.curveSegmentIdx];
+                    pt2 = cPoints[player.curveSegmentIdx + 1];
+                    const prevLen = Math.hypot(pt2.x - pt1.x, pt2.y - pt1.y);
+                    player.curveT = 1.0 + (player.curveT * segmentLength) / prevLen;
+                } else {
+                    player.vx = (dx / segmentLength) * player.surfSpeed;
+                    player.vy = (dy / segmentLength) * player.surfSpeed;
+                    player.x = pt1.x - player.width / 2;
+                    player.y = pt1.y - player.height;
+                    player.ridingCurve = null;
+                }
+            }
+
+            if (player.ridingCurve) {
+                pt1 = cPoints[player.curveSegmentIdx];
+                pt2 = cPoints[player.curveSegmentIdx + 1];
+                player.x = (pt1.x + player.curveT * (pt2.x - pt1.x)) - player.width / 2;
+                player.y = (pt1.y + player.curveT * (pt2.y - pt1.y)) - player.height;
+                player.vx = 0;
+                player.vy = 0;
+                player.grounded = true;
+            }
+        }
+
+        // --- 4E. ITEMS ---
+        if (player.grounded && !player.ridingCurve) {
+            for (let i = 0; i < pickups.length; i++) pickups[i].active = true;
+        }
+
+        for (let i = 0; i < pickups.length; i++) {
+            let item = pickups[i];
+            if (item.active &&
+                player.x < item.x + item.width && player.x + player.width > item.x &&
+                player.y < item.y + item.height && player.y + player.height > item.y) {
+                item.active = false;      
+                player.hasInk = true;     
+            }
+        }
+
+        // --- FIXED CAMERA BOUNDS ---
+        camera.x = (player.x + player.width / 2) - canvas.width / 2;
+        const maxCamX = WORLD_WIDTH - canvas.width;
+        camera.x = Math.max(0, maxCamX > 0 ? Math.min(maxCamX, camera.x) : 0);
+
+        camera.y = (player.y + player.height / 2) - canvas.height / 2;
+        const maxCamY = WORLD_HEIGHT - canvas.height;
+        camera.y = Math.max(0, maxCamY > 0 ? Math.min(maxCamY, camera.y) : 0);
+
+        // --- 5. RENDER STAGE ---
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        
+        ctx.translate(-camera.x, -camera.y);
+        ctx.scale(CAMERA_ZOOM, CAMERA_ZOOM);
+
+        // --- DRAW MULTI-TEXTURED TILE MAP GRID ---
+        for (let r = 0; r < MAP_ROWS; r++) {
+            for (let c = 0; c < MAP_COLS; c++) {
+                let drawX = Math.floor(c * TILE_SIZE);
+                let drawY = Math.floor(r * TILE_SIZE);
+                
+                if (LEVEL_MAP[r][c] === 1) {
+                    ctx.drawImage(iceTileImage, drawX, drawY, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
+                } else if (LEVEL_MAP[r][c] === 2) {
+                    ctx.drawImage(iceUnderImage, drawX, drawY, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
+                } else if (LEVEL_MAP[r][c] === 3) {
+                    ctx.drawImage(snowDirtImage, drawX, drawY, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
+                } else if (LEVEL_MAP[r][c] === 4) {
+                    ctx.drawImage(dirtImage, drawX, drawY, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
+                }
+            }
+        }
+
+        // Tokens
+        for (let i = 0; i < pickups.length; i++) {
+            let item = pickups[i];
+            if (item.active) {
+                ctx.fillStyle = "#facc15"; 
+                ctx.fillRect(item.x, item.y, item.width, item.height);
+            }
+        }
+
+        // Ink Lines
+        ctx.strokeStyle = "#4ade80";
+        ctx.lineWidth = 6;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        for (let c = 0; c < curves.length; c++) {
+            ctx.beginPath();
+            ctx.moveTo(curves[c][0].x, curves[c][0].y);
+            for (let i = 1; i < curves[c].length; i++) ctx.lineTo(curves[c][i].x, curves[c][i].y);
+            ctx.stroke();
+        }
+
+        if (isDrawing && currentCurve.length > 0) {
+            ctx.strokeStyle = "#facc15";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(currentCurve[0].x, currentCurve[0].y);
+            for (let i = 1; i < currentCurve.length; i++) ctx.lineTo(currentCurve[i].x, currentCurve[i].y);
+            ctx.stroke();
+        }
+
+        // Player
+        if (player.hasInk) ctx.fillStyle = "#facc15"; 
+        else if (player.wallSliding) ctx.fillStyle = "#22d3ee"; 
+        else ctx.fillStyle = player.ridingCurve ? "#38bdf8" : "#f43f5e";
+        
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+
+        ctx.restore();
+        requestAnimationFrame(update);
+    }
+
+    requestAnimationFrame(update);
+</script>
+
+</body>
+</html>
