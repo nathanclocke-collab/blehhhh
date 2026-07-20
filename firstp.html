@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Infinite Descent</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background-color: #020202; user-select: none;}
+        #canvas-container { width: 100%; height: 100%; }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 4px;
+            height: 4px;
+            background-color: rgba(255, 255, 255, 0.15);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        /* UI Battery Bar Display */
+        #battery-hud {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+            opacity: 0; /* Hidden initially during the bright building phase */
+            transition: opacity 1s ease;
+        }
+
+        .battery-cell {
+            width: 14px;
+            height: 28px;
+            background-color: #00ff66;
+            border-radius: 2px;
+            box-shadow: 0 0 8px rgba(0, 255, 102, 0.5);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .battery-cell.low {
+            background-color: #ff3333;
+            box-shadow: 0 0 8px rgba(255, 51, 51, 0.6);
+        }
+
+        .battery-cell.empty {
+            background-color: rgba(255, 255, 255, 0.05);
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="crosshair"></div>
+    
+    <div id="battery-hud">
+        <div id="cell-1" class="battery-cell"></div>
+        <div id="cell-2" class="battery-cell"></div>
+        <div id="cell-3" class="battery-cell"></div>
+    </div>
+
+    <div id="canvas-container"></div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const MAP_GRID = [
+            [1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 0, 0, 0, 1, 0, 0, 1],
+            [1, 0, 1, 1, 0, 0, 0, 1],
+            [1, 0, 1, 'x', 0, 1, 0, 1], 
+            [1, 0, 1, 1, 1, 1, 0, 1],
+            [1, 0, 0, 0, 0, 1, 0, 1],
+            [1, 1, 1, 0, 0, 0, 0, 1],
+            [1, 1, 1, 0, 1, 1, 1, 1],
+            [1, 1, 0, 0, 0, 0, 0, 1],
+            [1, 1, 0, 0, 1, 1, 0, 1],
+            [1, 1, 0, 1, 1, 0, 0, 1],
+            [1, 1, 0, 0, 1, 0, 1, 1],
+            [1, 0, 0, 1, 1, 0, 1, 1], 
+            [1, 0, 1, 1, 0, 0, 1, 1],
+            [1, 0, 1, 1, 0, 1, 1, 1], 
+            [1, 2, 1, 1, 2, 1, 1, 1]  
+        ];
+
+        const TILE_SIZE = 8, WALL_HEIGHT = 4.5, GRID_WIDTH = MAP_GRID[0].length, GRID_HEIGHT = MAP_GRID.length;
+        const WORLD_WIDTH = GRID_WIDTH * TILE_SIZE, WORLD_DEPTH = GRID_HEIGHT * TILE_SIZE;
+        
+        const WALK_SPEED = 6.0;
+        const SPRINT_SPEED = 11.0;
+        let currentSpeed = WALK_SPEED;
+        const MOUSE_SENSITIVITY = 0.0022;
+
+        let scene, camera, renderer, clock, yaw = 0, pitch = 0, flickerLights = [];
+        let moveF = false, moveB = false, moveL = false, moveR = false, isSprinting = false;
+
+        let doorsArray = [];
+        const TRANSITION_TRIGGER_DISTANCE = 2.5; 
+
+        // Flashlight Mechanics
+        let flashlight, flashlightBaseIntensity = 7;
+        let batteryLife = 100.0; 
+        let flashlightModel; 
+        let targetModelPos = new THREE.Vector3(0.35, -0.3, -0.6); 
+        let currentModelPos = new THREE.Vector3(0.35, -0.3, -0.6);
+        let shakeTime = 0;
+
+        // Audio System Setup
+        let audioListener;
+        let flickerAudio;
+        let startedIntroFlicker = false;
+
+        // Entities Setup
+        let shadowEntity; 
+        let finalStalkerEntity; 
+        let isFinalChaseActive = false;
+        let entitySpawnX = TILE_SIZE * 3.5; 
+        let entitySpawnZ = TILE_SIZE * 3.5;
+        const CHASE_SPEED = 13.0; 
+
+        // Death Sequence States
+        let isDying = false;
+        let deathTimer = 0;
+        const DEATH_DURATION = 1.0; 
+        let deathRedirectUrl = "secret.html";
+        let deathLookTarget = new THREE.Vector3();
+        let deathFollowsEntity = null; 
+
+        // Procedural Audio Engine
+        let audioCtx, droneOsc, droneGain;
+
+        const DEFAULT_EYE_HEIGHT = 1.65;
+        let bobTimer = 0;
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x020202, 0.06); 
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            clock = new THREE.Clock();
+            camera.position.set(TILE_SIZE * 1.5, DEFAULT_EYE_HEIGHT, TILE_SIZE * 1.5);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x020202);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            buildWorld();
+            setupPhysicalFlashlight();
+            setupShadowEntity();
+            setupControls();
+            animate();
+        }
+
+        function createGrimyTexture(base, grime) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = base;
+            ctx.fillRect(0, 0, 512, 512);
+
+            for (let i = 0; i < 15000; i++) {
+                ctx.fillStyle = Math.random() > 0.5 ? grime : '#000000';
+                ctx.globalAlpha = Math.random() * 0.3;
+                ctx.fillRect(Math.random() * 512, Math.random() * 512, Math.random() * 5, Math.random() * 5);
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+            return tex;
+        }
+
+        function buildWorld() {
+            const wallTexture = createGrimyTexture('#2a2a2a', '#111');
+            const wallMat = new THREE.MeshStandardMaterial({ map: wallTexture, roughness: 0.95 });
+            const floorMat = new THREE.MeshStandardMaterial({ map: createGrimyTexture('#1a1a1a', '#050505'), roughness: 0.85 });
+
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(WORLD_WIDTH, WORLD_DEPTH), floorMat);
+            floor.rotation.x = -Math.PI/2; floor.position.set(WORLD_WIDTH/2, 0, WORLD_DEPTH/2);
+            scene.add(floor);
+
+            const ceil = floor.clone(); ceil.rotation.x = Math.PI/2; ceil.position.y = WALL_HEIGHT;
+            scene.add(ceil);
+
+            const boxGeo = new THREE.BoxGeometry(TILE_SIZE, WALL_HEIGHT, TILE_SIZE);
+
+            for (let z = 0; z < GRID_HEIGHT; z++) {
+                for (let x = 0; x < GRID_WIDTH; x++) {
+                    let type = MAP_GRID[z][x];
+                    let worldX = x * TILE_SIZE + TILE_SIZE / 2;
+                    let worldZ = z * TILE_SIZE + TILE_SIZE / 2;
+
+                    if (type === 1) { 
+                        const b = new THREE.Mesh(boxGeo, wallMat);
+                        b.position.set(worldX, WALL_HEIGHT/2, worldZ);
+                        scene.add(b);
+                    }
+                    else if (type === 'x') {
+                        entitySpawnX = worldX;
+                        entitySpawnZ = worldZ;
+                    }
+                    else if (type === 2) {
+                        const doorGroup = new THREE.Group();
+                        doorGroup.position.set(worldX, 0, worldZ);
+
+                        const doorPanelMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.4, metalness: 0.2 });
+                        const frameMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.7 });
+                        const barMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.3 }); 
+
+                        const frameOuterGeo = new THREE.BoxGeometry(TILE_SIZE, WALL_HEIGHT, TILE_SIZE * 0.1);
+                        const frameOuter = new THREE.Mesh(frameOuterGeo, frameMat);
+                        frameOuter.position.set(0, WALL_HEIGHT / 2, 0);
+                        doorGroup.add(frameOuter);
+
+                        const panelGeo = new THREE.BoxGeometry(TILE_SIZE * 0.85, WALL_HEIGHT * 0.9, TILE_SIZE * 0.12);
+                        const panelMesh = new THREE.Mesh(panelGeo, doorPanelMat);
+                        panelMesh.position.set(0, (WALL_HEIGHT * 0.9) / 2, 0.02);
+                        doorGroup.add(panelMesh);
+
+                        const barGeo = new THREE.BoxGeometry(TILE_SIZE * 0.7, 0.15, 0.08);
+                        const pushBar = new THREE.Mesh(barGeo, barMat);
+                        pushBar.position.set(0, WALL_HEIGHT * 0.4, 0.09);
+                        doorGroup.add(pushBar);
+
+                        const ledGeo = new THREE.SphereGeometry(0.12, 16, 16);
+                        const ledMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+                        const ledMesh = new THREE.Mesh(ledGeo, ledMat);
+                        ledMesh.position.set(0, WALL_HEIGHT * 0.85, 0.1);
+                        doorGroup.add(ledMesh);
+
+                        const doorLight = new THREE.PointLight(0x00ff00, 1.5, 6);
+                        doorLight.position.set(0, WALL_HEIGHT * 0.85, 0.5);
+                        doorGroup.add(doorLight);
+
+                        doorGroup.rotation.y = Math.PI;
+                        
+                        scene.add(doorGroup);
+                        doorsArray.push(doorGroup); 
+                    }
+
+                    if (type === 0 && (x + z) % 3 === 0) {
+                        const pLight = new THREE.PointLight(0xffe0b0, 1.2, TILE_SIZE * 2.5);
+                        pLight.position.set(worldX, WALL_HEIGHT-0.5, worldZ);
+                        scene.add(pLight);
+                        flickerLights.push(pLight);
+                    }
+                }
+            }
+        }
+
+        function setupPhysicalFlashlight() {
+            flashlightModel = new THREE.Group();
+
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.8 });
+            const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.25, 12), bodyMat);
+            bodyMesh.rotation.x = Math.PI / 2; 
+            flashlightModel.add(bodyMesh);
+
+            const rimMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.02, 0.05, 12), bodyMat);
+            rimMesh.rotation.x = Math.PI / 2;
+            rimMesh.position.z = -0.13; 
+            flashlightModel.add(rimMesh);
+
+            const lensMesh = new THREE.Mesh(new THREE.CircleGeometry(0.03, 12), new THREE.MeshBasicMaterial({ color: 0xfffdf2 }));
+            lensMesh.position.z = -0.156;
+            lensMesh.rotation.y = Math.PI;
+            flashlightModel.add(lensMesh);
+
+            flashlight = new THREE.SpotLight(0xffffff, 0, 35, 0.45, 0.5, 1.2);
+            flashlight.position.set(0, 0, -0.16);
+            
+            const target = new THREE.Object3D();
+            target.position.set(0, 0, -5);
+            flashlightModel.add(target);
+            flashlight.target = target;
+            flashlightModel.add(flashlight);
+
+            flashlightModel.position.copy(targetModelPos);
+            camera.add(flashlightModel);
+            scene.add(camera);
+        }
+
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            droneOsc = audioCtx.createOscillator();
+            droneGain = audioCtx.createGain();
+            
+            droneOsc.type = 'sawtooth';
+            droneOsc.frequency.setValueAtTime(55, audioCtx.currentTime); 
+            
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(180, audioCtx.currentTime);
+            
+            droneOsc.connect(filter);
+            filter.connect(droneGain);
+            droneGain.connect(audioCtx.destination);
+            
+            droneGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            droneOsc.start();
+
+            // Setup Sound Listener on Player
+            audioListener = new THREE.AudioListener();
+            camera.add(audioListener);
+
+            // Fetch and bind background flicker tracks
+            const audioLoader = new THREE.AudioLoader();
+            flickerAudio = new THREE.Audio(audioListener);
+            
+            audioLoader.load('lightflicker.mp3', (buffer) => {
+                flickerAudio.setBuffer(buffer);
+                flickerAudio.setLoop(true);
+                flickerAudio.setVolume(0.5);
+            }, undefined, (err) => console.error("Error loading lightflicker.mp3:", err));
+        }
+
+        function setupShadowEntity() {
+            shadowEntity = new THREE.Group();
+            
+            const shadowMat = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide });
+            const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.12, 1.5, 6), shadowMat);
+            torso.position.set(0, 0.6, -0.2); 
+            torso.rotation.x = 0.4; 
+            shadowEntity.add(torso);
+
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 6), shadowMat);
+            head.scale.set(0.8, 1.5, 0.8); 
+            head.position.set(0, 1.1, -0.4); 
+            shadowEntity.add(head);
+
+            const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.015, 4, 4), eyeMat);
+            leftEye.position.set(-0.06, 1.15, -0.55); 
+            shadowEntity.add(leftEye);
+
+            const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.008, 4, 4), eyeMat); 
+            rightEye.position.set(0.05, 1.12, -0.55);
+            shadowEntity.add(rightEye);
+
+            shadowEntity.limbs = [];
+            const legCount = 6;
+            
+            for (let i = 0; i < legCount; i++) {
+                const legGroup = new THREE.Group();
+                legGroup.position.set(i % 2 === 0 ? -0.12 : 0.12, 0.4 + (i * 0.18), -0.2);
+                
+                const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.012, 1.1, 4), shadowMat);
+                upper.position.y = 0.5;
+                upper.rotation.z = i % 2 === 0 ? 0.7 : -0.7; 
+                upper.rotation.x = -0.5 + (i * 0.2);
+                legGroup.add(upper);
+                
+                const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.002, 1.2, 4), shadowMat);
+                lower.position.set(i % 2 === 0 ? -0.4 : 0.4, 0.9, -0.2);
+                lower.rotation.z = i % 2 === 0 ? -1.4 : 1.4;
+                legGroup.add(lower);
+                
+                shadowEntity.add(legGroup);
+                shadowEntity.limbs.push(legGroup);
+            }
+
+            shadowEntity.position.set(entitySpawnX, 0.05, entitySpawnZ);
+            scene.add(shadowEntity);
+
+            const boxHelper = new THREE.BoxHelper(shadowEntity, 0xff0000);
+            scene.add(boxHelper);
+        }
+
+        function triggerDeadlyChaseEntity() {
+            if (isFinalChaseActive || isDying) return;
+            isFinalChaseActive = true;
+
+            if (shadowEntity) {
+                scene.remove(shadowEntity);
+            }
+
+            finalStalkerEntity = new THREE.Group();
+            const blackMat = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
+            const whiteEyes = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.8, 0.4), blackMat);
+            torso.position.y = 0.9;
+            finalStalkerEntity.add(torso);
+
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), blackMat);
+            head.position.y = 1.9;
+            finalStalkerEntity.add(head);
+
+            const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.03, 4, 4), whiteEyes);
+            eyeL.position.set(-0.07, 1.95, 0.16);
+            finalStalkerEntity.add(eyeL);
+
+            const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.03, 4, 4), whiteEyes);
+            eyeR.position.set(0.07, 1.95, 0.16);
+            finalStalkerEntity.add(eyeR);
+
+            const backwardVector = new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion).normalize();
+            let spawnPos = camera.position.clone().addScaledVector(backwardVector, 12);
+            spawnPos.y = 0.05;
+
+            finalStalkerEntity.position.copy(spawnPos);
+            scene.add(finalStalkerEntity);
+
+            if (droneOsc) {
+                droneOsc.type = 'sawtooth';
+                droneOsc.frequency.setValueAtTime(130, audioCtx.currentTime);
+            }
+        }
+
+        function triggerKillingAnimation(redirectUrl, lookAtPos, followEntity) {
+            if (isDying) return;
+            isDying = true;
+            deathRedirectUrl = redirectUrl || "secret.html";
+            deathLookTarget.copy(lookAtPos || camera.position);
+            deathFollowsEntity = followEntity || null;
+            document.exitPointerLock();
+
+            scene.fog.color.setHex(0x550000); 
+            renderer.setClearColor(0x1a0000);
+
+            if (droneOsc && droneGain) {
+                droneOsc.type = 'square';
+                droneOsc.frequency.setValueAtTime(220, audioCtx.currentTime);
+                droneGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+            }
+        }
+
+        function setupControls() {
+            window.addEventListener('click', () => { 
+                if (isDying) return;
+                document.body.requestPointerLock(); 
+                initAudio(); 
+            });
+            document.addEventListener('mousemove', (e) => {
+                if (document.pointerLockElement !== document.body || isDying) return;
+                
+                yaw -= e.movementX * MOUSE_SENSITIVITY;
+                pitch = Math.max(-1.5, Math.min(1.5, pitch - e.movementY * MOUSE_SENSITIVITY));
+                camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+
+                if(flashlightModel) {
+                    targetModelPos.x -= e.movementX * 0.00015;
+                    targetModelPos.y += e.movementY * 0.00015;
+                }
+            });
+            
+            document.addEventListener('keydown', (e) => {
+                if (isDying) return;
+                if(e.code==='KeyW') moveF=true; 
+                if(e.code==='KeyS') moveB=true;
+                if(e.code==='KeyA') moveL=true; 
+                if(e.code==='KeyD') moveR=true;
+                if(e.shiftKey || e.code==='ShiftLeft' || e.code==='ShiftRight') isSprinting = true;
+                
+                if(e.code==='KeyR' && clock.getElapsedTime() >= 7.5 && batteryLife > 0) { 
+                    batteryLife = Math.min(100, batteryLife + 35); 
+                    shakeTime = 0.5; 
+                }
+            });
+            document.addEventListener('keyup', (e) => {
+                if(e.code==='KeyW') moveF=false; 
+                if(e.code==='KeyS') moveB=false;
+                if(e.code==='KeyA') moveL=false; 
+                if(e.code==='KeyD') moveR=false;
+                if(e.code==='ShiftLeft' || e.code==='ShiftRight') isSprinting = false;
+            });
+        }
+
+        function updateBatteryUI() {
+            const c1 = document.getElementById('cell-1');
+            const c2 = document.getElementById('cell-2');
+            const c3 = document.getElementById('cell-3');
+
+            [c1, c2, c3].forEach(c => c.className = 'battery-cell');
+
+            if (batteryLife <= 0) {
+                c1.classList.add('empty'); c2.classList.add('empty'); c3.classList.add('empty');
+            } else if (batteryLife <= 33.3) {
+                c1.classList.add('low'); c2.classList.add('empty'); c3.classList.add('empty');
+            } else if (batteryLife <= 66.6) {
+                c1.classList.add('battery-cell'); c2.classList.add('battery-cell'); c3.classList.add('empty');
+            } else {
+                c1.classList.add('battery-cell'); c2.classList.add('battery-cell'); c3.classList.add('battery-cell');
+            }
+        }
+
+        function checkCollision(pos) {
+            if (pos.x < 0 || pos.x >= WORLD_WIDTH || pos.z < 0 || pos.z >= WORLD_DEPTH) return false;
+            let gx = Math.floor(pos.x / TILE_SIZE);
+            let gz = Math.floor(pos.z / TILE_SIZE);
+            
+            if (MAP_GRID[gz] && MAP_GRID[gz][gx] === 1) return false;
+            return true;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const d = clock.getDelta();
+            const time = clock.getElapsedTime();
+            
+            // --- JUMP SCARE KILL ANIMATION UPDATE ROUTINE ---
+            if (isDying) {
+                deathTimer += d;
+                
+                if (deathFollowsEntity) {
+                    deathLookTarget.copy(deathFollowsEntity.position);
+                    deathLookTarget.y += 1.85; 
+                }
+                camera.lookAt(deathLookTarget);
+
+                camera.position.x += (Math.random() - 0.5) * 0.12;
+                camera.position.y += (Math.random() - 0.5) * 0.12;
+
+                if (droneGain) {
+                    droneGain.gain.setValueAtTime(0.8 * (1.0 - (deathTimer / DEATH_DURATION)), audioCtx.currentTime);
+                }
+
+                renderer.render(scene, camera);
+
+                if (deathTimer >= DEATH_DURATION) {
+                    if(audioCtx) audioCtx.close();
+                    window.location.href = deathRedirectUrl;
+                }
+                return; 
+            }
+
+            const fv = new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
+            const sv = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
+            let np = camera.position.clone();
+
+            const isMoving = moveF || moveB || moveL || moveR;
+            
+            currentSpeed = (isSprinting && isMoving) ? SPRINT_SPEED : WALK_SPEED;
+
+            if (moveF) np.addScaledVector(fv, currentSpeed * d); 
+            if (moveB) np.addScaledVector(fv, -currentSpeed * d);
+            if (moveR) np.addScaledVector(sv, currentSpeed * d); 
+            if (moveL) np.addScaledVector(sv, -currentSpeed * d);
+
+            if (np.x < 0) np.x += WORLD_WIDTH; if (np.x >= WORLD_WIDTH) np.x -= WORLD_WIDTH;
+            if (np.z < 0) np.z += WORLD_DEPTH; if (np.z >= WORLD_DEPTH) np.z -= WORLD_DEPTH;
+
+            if (checkCollision(np)) {
+                camera.position.copy(np);
+            }
+
+            doorsArray.forEach(door => {
+                let flatPlayerPos = new THREE.Vector3(camera.position.x, door.position.y, camera.position.z);
+                let distanceToDoor = flatPlayerPos.distanceTo(door.position);
+                
+                if(distanceToDoor < TRANSITION_TRIGGER_DISTANCE) {
+                    if(audioCtx) audioCtx.close();
+                    document.exitPointerLock();
+                    window.location.href = "./BlackjackMap.html"; 
+                }
+            });
+
+            if (isMoving) {
+                let bobModifier = (currentSpeed === SPRINT_SPEED) ? 1.7 : 1.0;
+                bobTimer += d * currentSpeed * 2.2; 
+                camera.position.y = DEFAULT_EYE_HEIGHT + Math.sin(bobTimer) * (0.04 * bobModifier);
+                camera.position.x += Math.cos(bobTimer * 0.5) * (0.015 * bobModifier);
+            } else {
+                camera.position.y = DEFAULT_EYE_HEIGHT + Math.sin(time * 1.8) * 0.012;
+            }
+
+            let restX = 0.35, restY = -0.3, restZ = -0.6;
+            
+            if (time < 7.5) {
+                restY = -1.2; 
+                flashlight.intensity = 0;
+
+                // --- SYNCED: ONLY TRIGGER SOUND WHEN TIME PASSED 3.0 (LIGHTS FLICKERING) ---
+                if (time >= 3.0 && flickerAudio && flickerAudio.buffer && !startedIntroFlicker) {
+                    if (!flickerAudio.isPlaying) {
+                        flickerAudio.play();        
+                    }
+                    startedIntroFlicker = true; 
+                }
+            } 
+            else {
+                document.getElementById('battery-hud').style.opacity = '1';
+
+                // --- STOP FLICKERING INTRO AUDIO ONCE STEADY ---
+                if (flickerAudio && flickerAudio.isPlaying) {
+                    flickerAudio.stop(); 
+                }
+
+                if (batteryLife > 0) {
+                    batteryLife -= d * 2.5; 
+                    if (batteryLife < 0) batteryLife = 0;
+                    updateBatteryUI();
+                }
+
+                if (isMoving) {
+                    let swayScale = (currentSpeed === SPRINT_SPEED) ? 2.5 : 1.0;
+                    let swaySpeed = (currentSpeed === SPRINT_SPEED) ? 14 : 10;
+                    restX += Math.sin(time * swaySpeed) * (0.02 * swayScale);
+                    restY += Math.abs(Math.sin(time * swaySpeed)) * (0.02 * swayScale); 
+                } else {
+                    restY += Math.sin(time * 1.5) * 0.005; 
+                }
+
+                if (batteryLife <= 0) {
+                    if (Math.random() > 0.35) {
+                        flashlight.intensity = Math.random() > 0.5 ? 0.1 : 4.5;
+                    } else {
+                        flashlight.intensity = 0.0;
+                    }
+                    
+                    triggerDeadlyChaseEntity();
+                } 
+                else if (batteryLife < 33.3) {
+                    if (Math.random() > 0.85) {
+                        flashlight.intensity = Math.random() > 0.5 ? 0.05 : flashlightBaseIntensity * (batteryLife / 50);
+                    }
+                } else {
+                    flashlight.intensity = flashlightBaseIntensity * (batteryLife / 100);
+                }
+            }
+
+            targetModelPos.x += (restX - targetModelPos.x) * 0.1;
+            targetModelPos.y += (restY - targetModelPos.y) * 0.1;
+            targetModelPos.z += (restZ - targetModelPos.z) * 0.1;
+
+            currentModelPos.lerp(targetModelPos, d * 12); 
+            flashlightModel.position.copy(currentModelPos);
+
+            if (shakeTime > 0 && batteryLife > 0) {
+                shakeTime -= d;
+                flashlightModel.position.x += (Math.random() - 0.5) * 0.08;
+                flashlightModel.position.y += (Math.random() - 0.5) * 0.08;
+                flashlight.intensity = flashlightBaseIntensity;
+            }
+
+            // --- ENTITY MACHINE HANDLING ---
+            if (!isFinalChaseActive) {
+                const dx1 = camera.position.x - shadowEntity.position.x;
+                const dz1 = camera.position.z - shadowEntity.position.z;
+                const distToPlayer = Math.sqrt(dx1 * dx1 + dz1 * dz1); 
+                
+                if (droneGain && audioCtx) {
+                    let soundRange = 25; 
+                    let volumeFactor = Math.max(0, 1 - (distToPlayer / soundRange));
+                    droneOsc.frequency.setValueAtTime(55 + (volumeFactor * 15), audioCtx.currentTime);
+                    droneGain.gain.setTargetAtTime(volumeFactor * 0.4, audioCtx.currentTime, 0.1);
+                }
+
+                if (shadowEntity.limbs) {
+                    shadowEntity.limbs.forEach((limb, idx) => {
+                        limb.rotation.x = Math.sin(time * 4 + idx) * 0.1; 
+                    });
+                }
+
+                if (distToPlayer <= 1.5) {
+                    let headPos = new THREE.Vector3(entitySpawnX, 1.15, entitySpawnZ);
+                    triggerKillingAnimation("secret.html", headPos, null);
+                }
+            } else {
+                if (finalStalkerEntity) {
+                    const dx2 = camera.position.x - finalStalkerEntity.position.x;
+                    const dz2 = camera.position.z - finalStalkerEntity.position.z;
+                    const distToPlayer = Math.sqrt(dx2 * dx2 + dz2 * dz2); 
+                    finalStalkerEntity.lookAt(camera.position.x, finalStalkerEntity.position.y, camera.position.z);
+                    
+                    let dir = new THREE.Vector3().subVectors(camera.position, finalStalkerEntity.position).setY(0).normalize();
+                    finalStalkerEntity.position.addScaledVector(dir, CHASE_SPEED * d);
+
+                    if (droneGain && audioCtx) {
+                        droneGain.gain.setValueAtTime(0.6 + Math.sin(time * 40) * 0.2, audioCtx.currentTime);
+                    }
+
+                    if (distToPlayer <= 1.4) {
+                        triggerKillingAnimation("gameover.html", finalStalkerEntity.position, finalStalkerEntity);
+                    }
+                }
+            }
+
+            flickerLights.forEach(l => {
+                if (time < 3.0) {
+                    l.intensity = 1.2;
+                } 
+                else if (time >= 3.0 && time < 5.5) {
+                    if (Math.random() > 0.75) {
+                        l.intensity = Math.random() > 0.4 ? 0.02 : 1.5; 
+                    }
+                } 
+                else {
+                    l.intensity = 0;
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+        window.onload = init;
+    </script>
+</body>
+</html>
